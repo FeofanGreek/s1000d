@@ -2,6 +2,7 @@ import 'dart:io' show File;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:xml/xml.dart';
+import 'package:go_router/go_router.dart';
 import '../../styles.dart';
 
 class DescriptionViewer extends StatefulWidget {
@@ -73,11 +74,11 @@ class _DescriptionViewerState extends State<DescriptionViewer> {
         content: const Text('Вы уверены, что хотите выйти без сохранения?', style: TextStyle(color: QRHColors.textSecondary)),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false), 
+            onPressed: () => context.pop(false), 
             child: const Text('Отмена', style: TextStyle(color: QRHColors.info))
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(true), 
+            onPressed: () => context.pop(true), 
             child: const Text('Выйти', style: TextStyle(color: QRHColors.danger))
           ),
         ],
@@ -111,7 +112,7 @@ class _DescriptionViewerState extends State<DescriptionViewer> {
         if (didPop) return;
         final shouldPop = await _onWillPop();
         if (shouldPop && mounted) {
-          Navigator.of(context).pop();
+          context.pop();
         }
       },
       child: Scaffold(

@@ -3,11 +3,11 @@ import 'dart:convert' show utf8;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:xml/xml.dart';
 import '../../../controllers/app_controller.dart';
 import '../../../styles.dart';
-import '../../xml_viewer_screen.dart';
 
 class PmDmRefWidget extends StatelessWidget {
   final XmlElement dmRef;
@@ -144,15 +144,14 @@ class PmDmRefWidget extends StatelessWidget {
 
         final content = utf8.decode(platformFile.bytes!);
         if (context.mounted) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => XmlViewerScreen(
-                fileTitle: fileTitle,
-                xmlContent: content,
-                fileName: platformFile.name,
-                filePath: null,
-              ),
-            ),
+          context.push(
+            '/xml_viewer',
+            extra: {
+              'fileTitle': fileTitle,
+              'xmlContent': content,
+              'fileName': platformFile.name,
+              'filePath': null,
+            },
           );
         }
       }
@@ -203,15 +202,14 @@ class PmDmRefWidget extends StatelessWidget {
     if (resolvedFile != null) {
       final content = await resolvedFile.readAsString();
       if (!context.mounted) return;
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => XmlViewerScreen(
-            xmlContent: content,
-            fileName: resolvedFile.uri.pathSegments.last,
-            filePath: resolvedFile.path,
-            fileTitle: fileTitle,
-          ),
-        ),
+      context.push(
+        '/xml_viewer',
+        extra: {
+          'xmlContent': content,
+          'fileName': resolvedFile.uri.pathSegments.last,
+          'filePath': resolvedFile.path,
+          'fileTitle': fileTitle,
+        },
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

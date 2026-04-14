@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:xml/xml.dart';
+import 'package:go_router/go_router.dart';
 import '../../styles.dart';
 import '../../../controllers/crew_viewer_controller.dart';
 import 'models/crew_models.dart';
@@ -78,7 +79,7 @@ class _CrewViewerContent extends StatelessWidget {
         if (didPop) return;
         final shouldPop = await controller.onWillPop(context);
         if (shouldPop && context.mounted) {
-          Navigator.of(context).pop();
+          context.pop();
         }
       },
       child: Scaffold(

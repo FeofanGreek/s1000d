@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'styles.dart';
-import 'ui/start_screen.dart';
+import 'router.dart';
 import 'controllers/app_controller.dart';
 
 void main() {
@@ -20,11 +20,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'Gazprom MI Render',
       theme: buildQRHTheme(),
-      home: const StartScreen(),
+      routerConfig: appRouter,
     );
   }
 }

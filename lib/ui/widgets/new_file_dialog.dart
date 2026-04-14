@@ -1,4 +1,6 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../styles.dart';
 import 'dialog_field.dart';
 
@@ -33,6 +35,8 @@ class _NewFileDialogState extends State<NewFileDialog> {
   late TextEditingController infoNameCtrl;
 
   bool _exists = false;
+  String? _infoCodeHelperText;
+  Color? _infoCodeHelperColor;
 
   @override
   void initState() {
@@ -55,9 +59,40 @@ class _NewFileDialogState extends State<NewFileDialog> {
     final variant = infoCodeVarCtrl.text.trim();
 
     final exists = widget.isFileExists(sysCode, infoCode, variant);
-    if (exists != _exists) {
+
+    String? helperText;
+    Color? helperColor;
+
+    if (infoCode.isNotEmpty) {
+      final codeInt = int.tryParse(infoCode);
+      if (codeInt != null) {
+        if (codeInt >= 1 && codeInt <= 99) {
+          helperText = 'Аварийные процедуры / Описание';
+          helperColor = QRHColors.danger;
+        } else if (codeInt >= 100 && codeInt <= 199) {
+          helperText = 'Обычные операции';
+          helperColor = QRHColors.success;
+        } else if (codeInt >= 200 && codeInt <= 299) {
+          helperText = 'Проверки и осмотры';
+          helperColor = QRHColors.info;
+        } else if (codeInt >= 500 && codeInt <= 599) {
+          helperText = 'Сборка и установка';
+          helperColor = QRHColors.info;
+        } else if (codeInt >= 700 && codeInt <= 799) {
+          helperText = 'Разборка и демонтаж';
+          helperColor = QRHColors.info;
+        } else {
+          helperText = 'Иная информация';
+          helperColor = QRHColors.textSecondary;
+        }
+      }
+    }
+
+    if (exists != _exists || helperText != _infoCodeHelperText || helperColor != _infoCodeHelperColor) {
       setState(() {
         _exists = exists;
+        _infoCodeHelperText = helperText;
+        _infoCodeHelperColor = helperColor;
       });
     }
   }
@@ -85,18 +120,36 @@ class _NewFileDialogState extends State<NewFileDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            DialogField(controller: sysCodeCtrl, label: 'System Code (e.g. D00)', mdAbout: 'about_system_code.md'),
+            DialogField(
+              controller: sysCodeCtrl,
+              label: 'System Code (e.g. D00)',
+              mdAbout: 'about_system_code.md',
+              regExpPattern: RegExp(r'^[A-Z0-9]{2,3}$'),
+              regExpErrorText: 'Формат: 2-3 символа (A-Z, 0-9)',
+              maxLength: 3,
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]'))],
+            ),
             DialogField(
               controller: infoCodeCtrl,
               label: 'Info Code (e.g. 001)',
               mdAbout: 'about_info_code.md',
               errorText: _exists ? 'Файл уже существует' : null,
+              helperText: _infoCodeHelperText,
+              helperColor: _infoCodeHelperColor,
+              regExpPattern: RegExp(r'^[A-Z0-9]{3}$'),
+              regExpErrorText: 'Формат: 3 символа (A-Z, 0-9)',
+              maxLength: 3,
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]'))],
             ),
             DialogField(
               controller: infoCodeVarCtrl,
               label: 'Info Code Variant (e.g. A)',
               mdAbout: 'about_info_code_variant.md',
               errorText: _exists ? 'Укажите другой вариант' : null,
+              regExpPattern: RegExp(r'^[A-Z0-9]{1}$'),
+              regExpErrorText: 'Формат: 1 символ (A-Z, 0-9)',
+              maxLength: 1,
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]'))],
             ),
             DialogField(controller: infoNameCtrl, label: 'Название (Info Name / Title)'),
           ],
@@ -104,14 +157,14 @@ class _NewFileDialogState extends State<NewFileDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context, null),
+          onPressed: () => context.pop(),
           child: const Text('Отмена', style: TextStyle(color: QRHColors.danger)),
         ),
         TextButton(
           onPressed: isActionDisabled
               ? null
               : () {
-                  Navigator.pop(context, {
+                  context.pop({
                     'sysCode': sysCodeCtrl.text.trim(),
                     'infoCode': infoCodeCtrl.text.trim(),
                     'infoCodeVar': infoCodeVarCtrl.text.trim(),

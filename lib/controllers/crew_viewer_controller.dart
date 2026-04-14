@@ -2,6 +2,7 @@ import 'dart:io' show File;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:xml/xml.dart';
+import 'package:go_router/go_router.dart';
 import '../styles.dart';
 import '../ui/viewers/models/crew_models.dart';
 
@@ -17,12 +18,7 @@ class CrewViewerController extends ChangeNotifier {
   bool isEditMode = false;
   bool hasChanges = false;
 
-  CrewViewerController({
-    required this.document,
-    required this.fileName,
-    this.filePath,
-    this.fileTitle,
-  }) {
+  CrewViewerController({required this.document, required this.fileName, this.filePath, this.fileTitle}) {
     parseCrewData();
   }
 
@@ -91,7 +87,8 @@ class CrewViewerController extends ChangeNotifier {
           final response = cleanText(responseNode?.innerText ?? '');
 
           final members = <String>[];
-          final group = cr.findAllElements('crewMemberGroup').firstOrNull ?? step.findAllElements('crewMemberGroup').firstOrNull;
+          final group =
+              cr.findAllElements('crewMemberGroup').firstOrNull ?? step.findAllElements('crewMemberGroup').firstOrNull;
 
           if (group != null) {
             for (var member in group.findAllElements('crewMember')) {
@@ -187,11 +184,11 @@ class CrewViewerController extends ChangeNotifier {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => context.pop(false),
             child: const Text('Отмена', style: TextStyle(color: QRHColors.info)),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () => context.pop(true),
             child: const Text('Выйти', style: TextStyle(color: QRHColors.danger)),
           ),
         ],
@@ -252,46 +249,70 @@ class CrewViewerController extends ChangeNotifier {
   }
 
   Future<void> showAddCrewMemberDialog(BuildContext context, CrewStep step) async {
-    String newCm = '';
+    String? newCm;
+
+    final Map<String, String> crewRoles = {
+      'cm01': 'cm01 - КС (КВС)',
+      'cm02': 'cm02 - 2/П (2-й пилот)',
+      'cm03': 'cm03 - Б/П (Бортпроводник)',
+      'cm04': 'cm04 - П/П (Пилотирующий пилот)',
+      'cm05': 'cm05 - Н/П (Не пилотирующий пилот)',
+      'cm06': 'cm06 - Э (Экипаж, КС+2/П)',
+    };
+
     final res = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: QRHColors.secondaryBg,
-        title: const Text('Добавить роль', style: TextStyle(color: QRHColors.textPrimary)),
-        content: TextField(
-          onChanged: (v) => newCm = v.trim(),
-          style: const TextStyle(color: QRHColors.textPrimary),
-          decoration: const InputDecoration(
-            hintText: 'cm01, cm02...',
-            hintStyle: TextStyle(color: QRHColors.textTertiary),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: QRHColors.borderColor)),
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: QRHColors.info)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Отмена', style: TextStyle(color: QRHColors.info)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Добавить', style: TextStyle(color: QRHColors.success)),
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: QRHColors.secondaryBg,
+              title: const Text('Добавить роль', style: TextStyle(color: QRHColors.textPrimary)),
+              content: DropdownButtonFormField<String>(
+                value: newCm,
+                dropdownColor: QRHColors.secondaryBg,
+                style: const TextStyle(color: QRHColors.textPrimary),
+                decoration: const InputDecoration(
+                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: QRHColors.borderColor)),
+                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: QRHColors.info)),
+                ),
+                hint: const Text('Выберите роль...', style: TextStyle(color: QRHColors.textTertiary)),
+                items: crewRoles.entries.map((entry) {
+                  return DropdownMenuItem<String>(value: entry.key, child: Text(entry.value));
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    newCm = value;
+                  });
+                },
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => ctx.pop(false),
+                  child: const Text('Отмена', style: TextStyle(color: QRHColors.info)),
+                ),
+                TextButton(
+                  onPressed: newCm != null ? () => ctx.pop(true) : null,
+                  child: Text(
+                    'Добавить',
+                    style: TextStyle(color: newCm != null ? QRHColors.success : QRHColors.textSecondary),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
 
-    if (res == true && newCm.isNotEmpty) {
-      step.crewMembers.add(newCm);
+    if (res == true && newCm != null) {
+      step.crewMembers.add(newCm!);
 
       if (step.groupNode == null) {
         final newGroup = XmlElement(XmlName('crewMemberGroup'));
         final cr = step.challengeNode?.parentElement;
         if (cr != null) {
-          final responseNode = cr.children
-              .whereType<XmlElement>()
-              .where((e) => e.name.local == 'response')
-              .firstOrNull;
+          final responseNode = cr.children.whereType<XmlElement>().where((e) => e.name.local == 'response').firstOrNull;
           if (responseNode != null) {
             final index = cr.children.indexOf(responseNode);
             cr.children.insert(index, newGroup);
@@ -303,7 +324,7 @@ class CrewViewerController extends ChangeNotifier {
       }
 
       step.groupNode?.children.add(
-        XmlElement(XmlName('crewMember'), [XmlAttribute(XmlName('crewMemberType'), newCm)]),
+        XmlElement(XmlName('crewMember'), [XmlAttribute(XmlName('crewMemberType'), newCm!)]),
       );
 
       hasChanges = true;
@@ -426,5 +447,9 @@ class CrewViewerController extends ChangeNotifier {
   void updateStepResponse(CrewStep step, String newText) {
     step.response = newText;
     updateXmlNodeText(step.responseNode, newText);
+  }
+
+  void update() {
+    notifyListeners();
   }
 }

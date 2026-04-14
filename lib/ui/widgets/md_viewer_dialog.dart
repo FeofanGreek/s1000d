@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:go_router/go_router.dart';
 import '../../styles.dart';
 
 class MdViewerDialog extends StatelessWidget {
@@ -37,7 +38,7 @@ class MdViewerDialog extends StatelessWidget {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => context.pop(),
           child: const Text('Закрыть', style: TextStyle(color: QRHColors.info)),
         ),
       ],

@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:xml/xml.dart';
 import '../styles.dart';
@@ -10,10 +12,6 @@ import '../utils/s1000d_pm_builder.dart';
 import '../utils/s1000d_md_parser.dart';
 import '../ui/widgets/dialog_field.dart';
 import '../ui/widgets/new_file_dialog.dart';
-import '../ui/xml_viewer_screen.dart';
-import '../ui/viewers/crew_viewer.dart';
-import '../ui/viewers/description_viewer.dart';
-import '../ui/viewers/pm_viewer.dart';
 
 class AppController with ChangeNotifier {
   Directory? workDir;
@@ -132,9 +130,27 @@ class AppController with ChangeNotifier {
                     controller: modelIdentCodeCtrl,
                     label: 'Model Ident Code (e.g. MI171A3)',
                     mdAbout: 'about_model_ident_code.md',
+                    regExpPattern: RegExp(r'^[A-Z0-9]{2,14}$'),
+                    regExpErrorText: 'Формат: 2-14 символов (A-Z, 0-9)',
+                    maxLength: 14,
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]'))],
                   ),
-                  DialogField(controller: languageIsoCodeCtrl, label: 'Language ISO Code (e.g. ru)'),
-                  DialogField(controller: languageCountryIsoCodeCtrl, label: 'Country ISO Code (e.g. RU)'),
+                  DialogField(
+                    controller: languageIsoCodeCtrl,
+                    label: 'Language ISO Code (e.g. ru)',
+                    regExpPattern: RegExp(r'^[a-z]{2,3}$'),
+                    regExpErrorText: 'Формат: 2-3 символа (a-z)',
+                    maxLength: 3,
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-z]'))],
+                  ),
+                  DialogField(
+                    controller: languageCountryIsoCodeCtrl,
+                    label: 'Country ISO Code (e.g. RU)',
+                    regExpPattern: RegExp(r'^[A-Z]{2}$'),
+                    regExpErrorText: 'Формат: 2 символа (A-Z)',
+                    maxLength: 2,
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[A-Z]'))],
+                  ),
                   DialogField(controller: techNameCtrl, label: 'Tech Name', mdAbout: 'about_tech_name.md'),
                   DialogField(controller: partnerCodeCtrl, label: 'Partner Code', mdAbout: 'about_parthner_code.md'),
                   DialogField(controller: partnerNameCtrl, label: 'Partner Name', mdAbout: 'about_parthner_name.md'),
@@ -148,11 +164,19 @@ class AppController with ChangeNotifier {
                     controller: brexInfoCodeCtrl,
                     label: 'BREX Info Code (e.g. 022)',
                     mdAbout: 'about_brex_info_code.md',
+                    regExpPattern: RegExp(r'^[A-Z0-9]{3}$'),
+                    regExpErrorText: 'Формат: 3 символа (A-Z, 0-9)',
+                    maxLength: 3,
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]'))],
                   ),
                   DialogField(
                     controller: brexLocationCtrl,
                     label: 'BREX Location (e.g. D)',
                     mdAbout: 'about_brex_location.md',
+                    regExpPattern: RegExp(r'^[ABCDT]$'),
+                    regExpErrorText: 'Формат: 1 символ (A, B, C, D, T)',
+                    maxLength: 1,
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[ABCDT]'))],
                   ),
                 ],
               ),
@@ -160,11 +184,11 @@ class AppController with ChangeNotifier {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
+              onPressed: () => ctx.pop(false),
               child: const Text('Отмена', style: TextStyle(color: QRHColors.danger)),
             ),
             TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
+              onPressed: () => ctx.pop(true),
               child: const Text('Сохранить', style: TextStyle(color: QRHColors.success)),
             ),
           ],
@@ -290,11 +314,14 @@ $identXml
 
       if (context.mounted) {
         final document = XmlDocument.parse(fullXmlString);
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) =>
-                CrewViewer(document: document, fileName: fileName, filePath: filePath, fileTitle: params.infoName),
-          ),
+        context.push(
+          '/crew_viewer',
+          extra: {
+            'document': document,
+            'fileName': fileName,
+            'filePath': filePath,
+            'fileTitle': params.infoName,
+          },
         );
       }
     }
@@ -318,14 +345,13 @@ $identXml
       }
 
       if (context.mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => XmlViewerScreen(
-              xmlContent: content,
-              fileName: platformFile.name,
-              filePath: kIsWeb ? null : platformFile.path,
-            ),
-          ),
+        context.push(
+          '/xml_viewer',
+          extra: {
+            'xmlContent': content,
+            'fileName': platformFile.name,
+            'filePath': kIsWeb ? null : platformFile.path,
+          },
         );
       }
     }
@@ -422,18 +448,23 @@ ${contentXml.toXmlString(pretty: true)}
         if (context.mounted) {
           final document = XmlDocument.parse(fullXmlString);
           if (isCrew) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) =>
-                    CrewViewer(document: document, fileName: fileName, filePath: filePath, fileTitle: params.infoName),
-              ),
+            context.push(
+              '/crew_viewer',
+              extra: {
+                'document': document,
+                'fileName': fileName,
+                'filePath': filePath,
+                'fileTitle': params.infoName,
+              },
             );
           } else {
-            // Needed to import DescriptionViewer!
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => DescriptionViewer(document: document, fileName: fileName, filePath: filePath),
-              ),
+            context.push(
+              '/description_viewer',
+              extra: {
+                'document': document,
+                'fileName': fileName,
+                'filePath': filePath,
+              },
             );
           }
         }
@@ -469,11 +500,13 @@ ${contentXml.toXmlString(pretty: true)}
         final content = await tocFile.readAsString();
         final document = XmlDocument.parse(content);
         if (context.mounted) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) =>
-                  PmViewer(document: document, fileName: tocFile!.uri.pathSegments.last, filePath: tocFile.path),
-            ),
+          context.push(
+            '/pm_viewer',
+            extra: {
+              'document': document,
+              'fileName': tocFile.uri.pathSegments.last,
+              'filePath': tocFile.path,
+            },
           );
         }
       } catch (e) {
@@ -565,10 +598,13 @@ ${contentXml.toXmlString(pretty: true)}
         Navigator.of(context, rootNavigator: true).pop(); // Закрыть лоадер
 
         final document = XmlDocument.parse(pmcXml);
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => PmViewer(document: document, fileName: pmcFileName, filePath: pmcFilePath),
-          ),
+        context.push(
+          '/pm_viewer',
+          extra: {
+            'document': document,
+            'fileName': pmcFileName,
+            'filePath': pmcFilePath,
+          },
         );
       }
     } catch (e) {
