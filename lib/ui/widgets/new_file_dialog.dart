@@ -85,15 +85,17 @@ class _NewFileDialogState extends State<NewFileDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            DialogField(controller: sysCodeCtrl, label: 'System Code (e.g. D00)'),
+            DialogField(controller: sysCodeCtrl, label: 'System Code (e.g. D00)', mdAbout: 'about_system_code.md'),
             DialogField(
               controller: infoCodeCtrl,
               label: 'Info Code (e.g. 001)',
+              mdAbout: 'about_info_code.md',
               errorText: _exists ? 'Файл уже существует' : null,
             ),
             DialogField(
               controller: infoCodeVarCtrl,
               label: 'Info Code Variant (e.g. A)',
+              mdAbout: 'about_info_code_variant.md',
               errorText: _exists ? 'Укажите другой вариант' : null,
             ),
             DialogField(controller: infoNameCtrl, label: 'Название (Info Name / Title)'),
