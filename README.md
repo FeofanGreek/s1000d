@@ -1,17 +1,92 @@
-# gazprom_mi_render
+# Gazprom MI Render (S1000D Editor)
 
-Рендер QRH Газпром и МИ
+**Gazprom MI Render** — это кроссплатформенное десктоп-приложение на Flutter, предназначенное для создания, редактирования, визуализации и управления технической и лётной документацией в строгом соответствии с международным стандартом **S1000D** (в частности, для вертолетов серии Ми).
 
-## Getting Started
+Приложение упрощает работу с Data Modules (DMC) и Publication Modules (PMC), пряча сложность XML-разметки за современным, удобным и понятным пользовательским интерфейсом с ночной контрастной темой, оптимизированной под кабины и слабое освещение.
 
-This project is a starting point for a Flutter application.
+---
 
-A few resources to get you started if this is your first Flutter project:
+## 🎯 Основные возможности
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+* **Управление проектами (S1000D Projects):**
+  * Создание локальных проектов с автоматической генерацией `project.json`.
+  * Управление глобальными метаданными проекта (Model Ident Code, коды языков, копирайты, BREX-коды).
+  * Автоматическое каскадное обновление метаданных во всех файлах проекта при изменении настроек.
+* **Работа с Data Modules (DMC):**
+  * Создание новых файлов (crew.xsd для чеклистов, descript.xsd для описаний) через графический интерфейс с контролем уникальности кодов (SNS, Info Code, Variant).
+  * Импорт структурированных Markdown-файлов (`.md` / `.txt`) и их автоматическая конвертация в валидный S1000D XML.
+  * Визуальное WYSIWYG-редактирование чеклистов экипажа (Crew Data): вызовы (Challenge), ответы (Response), назначения ролей экипажа, примечания (Note), предупреждения (Warning) и предостережения (Caution).
+  * Изменение S1000D кодов "на лету" с физическим переименованием файлов на жестком диске.
+* **Генерация и просмотр Оглавления (PMC - Publication Module):**
+  * Автоматический сбор всех `DMC-*.XML` файлов в папке и генерация сводного `PMC-*.XML`.
+  * Интеллектуальная группировка по Info Code (Аварийные ситуации, Нормальная эксплуатация, Ограничения и т.д.).
+  * Красивый плиточный "Drill-down" интерфейс для навигации по документам:
+    * 🔴 Аварийные ситуации (040)
+    * 🟠 Сложные ситуации (050)
+    * 🟢 Контрольные карты (030)
+    * 🔵 Описание (041)
+* **Адаптивный дизайн (Night Mode):**
+  * Специальная палитра `QRHColors` с глубоким синим фоном и контрастными акцентами, снижающая нагрузку на глаза.
+  * Поддержка горячих клавиш, всплывающих подсказок и диалоговых окон для безопасной работы с файловой системой.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+---
+
+## 🛠 Технологический стек
+
+* **Framework:** [Flutter](https://flutter.dev/) (Dart)
+* **Роутинг:** `go_router`
+* **Стейт-менеджмент:** `provider`
+* **Файловая система:** `file_picker` + `dart:io`
+* **Парсинг/Генерация:** `xml` (для S1000D XML-структур)
+
+---
+
+## 📁 Структура проекта
+
+* `lib/controllers/` — Бизнес-логика, управление стейтом и работа с файловой системой (`app_controller.dart`, `crew_viewer_controller.dart`).
+* `lib/ui/` — Главные экраны приложения:
+  * `start_screen.dart` — Точка входа, выбор проекта.
+  * `project_settings_screen.dart` — Настройки всего проекта (метаданные).
+  * `xml_viewer_screen.dart` — Просмотр "сырого" XML кода.
+* `lib/ui/viewers/` — Рендереры S1000D документов:
+  * `crew_viewer.dart` — WYSIWYG редактор чеклистов.
+  * `description_viewer.dart` — Просмотр описательных Data Module.
+  * `pm_viewer.dart` — Плиточный интерфейс оглавления (PMC).
+* `lib/ui/widgets/` — Переиспользуемые UI компоненты (формы, диалоги, кнопки).
+* `lib/utils/` — Утилиты для стандарта S1000D:
+  * `s1000d_ident_and_status.dart` — Билдер секции `identAndStatusSection`.
+  * `s1000d_md_parser.dart` — Парсер Markdown -> S1000D XML.
+  * `s1000d_pm_builder.dart` — Билдер XML-оглавления (PMC).
+* `assets/` — Справочная информация (`user_manual.md`, примеры Markdown-разметки).
+
+---
+
+## 🚀 Запуск и сборка
+
+1. Убедитесь, что установлен [Flutter SDK](https://docs.flutter.dev/get-started/install) (рекомендуется версия 3.22+).
+2. Склонируйте репозиторий.
+3. Выполните команду `flutter pub get` для установки зависимостей.
+4. Запустите проект в режиме отладки:
+   ```bash
+   flutter run -d macos  # Для macOS
+   flutter run -d windows # Для Windows
+   ```
+
+*(Для сборки релизного билда используйте `flutter build macos` / `flutter build windows`)*
+
+---
+
+## 📚 Документация
+
+Полное руководство пользователя находится внутри самого приложения (Кнопка `Помощь (?)` -> `Руководство пользователя`). Физически файл лежит по пути: `assets/user_manual.md`. 
+Там подробно описаны:
+* Принципы формирования названий (DMCode).
+* Логика работы с Markdown-импортом.
+* Особенности работы PMC-модуля и цветовой дифференциации.
+
+---
+
+## 📝 Разработка и стандарты
+
+Приложение опирается на схемы `crew.xsd` и `descript.xsd` стандарта S1000D (версия 4.1). 
+Все генерируемые XML-файлы содержат валидный заголовок и структуру, позволяющую импортировать их в любую S1000D-совместимую CSDB (Common Source Data Base).
