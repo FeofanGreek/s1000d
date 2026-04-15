@@ -2,6 +2,7 @@ import 'package:go_router/go_router.dart';
 import 'package:xml/xml.dart';
 
 import 'ui/start_screen.dart';
+import 'ui/project_settings_screen.dart';
 import 'ui/viewers/crew_viewer.dart';
 import 'ui/viewers/description_viewer.dart';
 import 'ui/viewers/pm_viewer.dart';
@@ -13,6 +14,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/',
       builder: (context, state) => const StartScreen(),
+    ),
+    GoRoute(
+      path: '/project_settings',
+      builder: (context, state) => const ProjectSettingsScreen(),
     ),
     GoRoute(
       path: '/crew_viewer',

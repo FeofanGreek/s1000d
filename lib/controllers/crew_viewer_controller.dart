@@ -1,16 +1,19 @@
-import 'dart:io' show File;
+import 'dart:io' show File, Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:xml/xml.dart';
 import 'package:go_router/go_router.dart';
 import '../styles.dart';
 import '../ui/viewers/models/crew_models.dart';
+import 'app_controller.dart';
+import '../ui/widgets/file_settings_form.dart';
 
 class CrewViewerController extends ChangeNotifier {
   final XmlDocument document;
-  final String fileName;
-  final String? filePath;
-  final String? fileTitle;
+  String fileName;
+  String? filePath;
+  String? fileTitle;
 
   final List<CrewItem> items = [];
   final List<bool> checkboxStates = [];
@@ -167,6 +170,166 @@ class CrewViewerController extends ChangeNotifier {
             context,
           ).showSnackBar(SnackBar(content: Text('Ошибка сохранения: $e'), backgroundColor: QRHColors.danger));
         }
+      }
+    }
+  }
+
+  Future<void> showFileSettingsDialog(BuildContext context) async {
+    final appCtrl = context.read<AppController>();
+
+    final dmCodeNode = document.findAllElements('dmCode').firstOrNull;
+    final currentSysCode = dmCodeNode?.getAttribute('systemCode') ?? '';
+    final currentInfoCode = dmCodeNode?.getAttribute('infoCode') ?? '';
+    final currentVariant = dmCodeNode?.getAttribute('infoCodeVariant') ?? 'A';
+
+    final titleNode = document.findAllElements('infoName').firstOrNull;
+    final currentTitle = titleNode?.innerText ?? '';
+
+    final sysCodeCtrl = TextEditingController(text: currentSysCode);
+    final infoCodeCtrl = TextEditingController(text: currentInfoCode);
+    final infoCodeVarCtrl = TextEditingController(text: currentVariant);
+    final infoNameCtrl = TextEditingController(text: currentTitle);
+
+    final formKey = GlobalKey<FileSettingsFormState>();
+    bool isValid = true; // initially true because we open an existing valid file
+
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            void onValidationChanged() {
+              final newValid = formKey.currentState?.isValid ?? false;
+              if (newValid != isValid) {
+                setState(() => isValid = newValid);
+              }
+            }
+
+            return AlertDialog(
+              backgroundColor: QRHColors.secondaryBg,
+              title: const Text('Настройки файла', style: TextStyle(color: QRHColors.textPrimary)),
+              content: SingleChildScrollView(
+                child: FileSettingsForm(
+                  key: formKey,
+                  sysCodeCtrl: sysCodeCtrl,
+                  infoCodeCtrl: infoCodeCtrl,
+                  infoCodeVarCtrl: infoCodeVarCtrl,
+                  infoNameCtrl: infoNameCtrl,
+                  isFileExists: (sys, info, varCode) {
+                    if (sys == currentSysCode && info == currentInfoCode && varCode == currentVariant) {
+                      return false;
+                    }
+                    return appCtrl.isDmCodeOccupied(sys, info, varCode, diffCode: 'AAA');
+                  },
+                  onValidationChanged: onValidationChanged,
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => ctx.pop(),
+                  child: const Text('Отмена', style: TextStyle(color: QRHColors.danger)),
+                ),
+                ElevatedButton(
+                  onPressed: !isValid
+                      ? null
+                      : () {
+                          ctx.pop({
+                            'sysCode': sysCodeCtrl.text.trim().toUpperCase(),
+                            'infoCode': infoCodeCtrl.text.trim(),
+                            'infoCodeVar': infoCodeVarCtrl.text.trim().toUpperCase(),
+                            'infoName': infoNameCtrl.text.trim(),
+                          });
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: !isValid ? Colors.transparent : QRHColors.success.withValues(alpha: 0.2),
+                  ),
+                  child: Text(
+                    'Сохранить',
+                    style: TextStyle(color: !isValid ? QRHColors.textSecondary : QRHColors.success),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result != null) {
+      final newSysCode = result['sysCode']!;
+      final newInfoCode = result['infoCode']!;
+      final newVariant = result['infoCodeVar']!;
+      final newInfoName = result['infoName']!;
+
+      bool xmlChanged = false;
+
+      if (dmCodeNode != null) {
+        if (currentSysCode != newSysCode) { dmCodeNode.setAttribute('systemCode', newSysCode); xmlChanged = true; }
+        if (currentInfoCode != newInfoCode) { dmCodeNode.setAttribute('infoCode', newInfoCode); xmlChanged = true; }
+        if (currentVariant != newVariant) { dmCodeNode.setAttribute('infoCodeVariant', newVariant); xmlChanged = true; }
+      }
+
+      final infoNameNodes = document.findAllElements('infoName');
+      for (var node in infoNameNodes) {
+        if (node.innerText != newInfoName) {
+          node.innerText = newInfoName;
+          xmlChanged = true;
+        }
+      }
+      
+      final titleNodes = document.findAllElements('title');
+      if (titleNodes.isNotEmpty) {
+        final mainTitle = titleNodes.first;
+        if (mainTitle.innerText != newInfoName) {
+          mainTitle.innerText = newInfoName;
+          xmlChanged = true;
+        }
+      }
+
+      if (xmlChanged) {
+        hasChanges = true;
+        fileTitle = newInfoName;
+        
+        if (filePath != null && !kIsWeb) {
+          try {
+            // Check if dmCode actually changed. If yes, calculate new file name and rename.
+            if (currentSysCode != newSysCode || currentInfoCode != newInfoCode || currentVariant != newVariant) {
+              final oldFile = File(filePath!);
+              final params = appCtrl.createChecklistParams(
+                infoName: newInfoName,
+                systemCode: newSysCode,
+                infoCode: newInfoCode,
+                infoCodeVariant: newVariant,
+                systemDiffCode: 'AAA', // Assuming crew diff code
+              );
+              
+              final newFileName = params.getFileName();
+              final dir = oldFile.parent;
+              final newFilePath = '${dir.path}${Platform.pathSeparator}$newFileName';
+              
+              await oldFile.rename(newFilePath);
+              
+              fileName = newFileName;
+              filePath = newFilePath;
+            }
+            // Now save the changes to the (possibly renamed) file
+            if (context.mounted) {
+              await saveChanges(context);
+              if (context.mounted) {
+                await appCtrl.generateTOC(context, openViewer: false);
+              }
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Ошибка переименования/сохранения: $e'), backgroundColor: QRHColors.danger)
+              );
+            }
+          }
+        }
+        
+        notifyListeners();
       }
     }
   }

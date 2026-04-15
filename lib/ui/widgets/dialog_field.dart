@@ -83,14 +83,12 @@ class _DialogFieldState extends State<DialogField> {
           errorText: widget.errorText ?? _internalErrorText,
           errorStyle: const TextStyle(color: QRHColors.danger),
           helperText: widget.helperText,
-          helperStyle: widget.helperColor != null ? TextStyle(color: widget.helperColor) : null,
+          helperStyle: widget.helperColor != null ? TextStyle(color: widget.helperColor, fontSize: 12) : null,
           counterText: '',
           enabledBorder: UnderlineInputBorder(
             borderSide: BorderSide(color: widget.helperColor ?? QRHColors.borderColor),
           ),
-          focusedBorder: UnderlineInputBorder(
-            borderSide: BorderSide(color: widget.helperColor ?? QRHColors.info),
-          ),
+          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: widget.helperColor ?? QRHColors.info)),
           suffix: SizedBox(
             width: widget.mdAbout != null ? 50 : 30,
             child: Row(

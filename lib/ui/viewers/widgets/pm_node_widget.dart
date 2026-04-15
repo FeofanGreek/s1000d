@@ -14,6 +14,19 @@ class PmNodeWidget extends StatelessWidget {
     if (node.name.local == 'pmEntry') {
       final title = node.findElements('pmEntryTitle').firstOrNull?.innerText ?? 'Без заголовка';
 
+      Color titleColor = QRHColors.textPrimary;
+      if (depth == 0) {
+        if (title.contains('040')) {
+          titleColor = QRHColors.danger;
+        } else if (title.contains('050')) {
+          titleColor = QRHColors.caution;
+        } else if (title.contains('030')) {
+          titleColor = QRHColors.success;
+        } else if (title.contains('041')) {
+          titleColor = QRHColors.info;
+        }
+      }
+
       // Выбираем дочерние элементы, исключая сам pmEntryTitle
       final children = node.children
           .whereType<XmlElement>()
@@ -33,7 +46,7 @@ class PmNodeWidget extends StatelessWidget {
                 style: TextStyle(
                   fontSize: depth == 0 ? 22 : 18,
                   fontWeight: FontWeight.bold,
-                  color: depth == 0 ? QRHColors.textPrimary : QRHColors.textSecondary,
+                  color: depth == 0 ? titleColor : QRHColors.textSecondary,
                 ),
               ),
             ),

@@ -12,6 +12,7 @@ import '../utils/s1000d_pm_builder.dart';
 import '../utils/s1000d_md_parser.dart';
 import '../ui/widgets/dialog_field.dart';
 import '../ui/widgets/new_file_dialog.dart';
+import '../ui/widgets/project_settings_form.dart';
 
 class AppController with ChangeNotifier {
   Directory? workDir;
@@ -78,6 +79,145 @@ class AppController with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> applyProjectSettingsToFiles() async {
+    if (workDir == null) return;
+
+    try {
+      final entities = await workDir!.list().toList();
+      final xmlFiles = entities.whereType<File>().where((f) => f.path.toLowerCase().endsWith('.xml'));
+
+      for (var file in xmlFiles) {
+        try {
+          final content = await file.readAsString();
+          final document = XmlDocument.parse(content);
+          bool changed = false;
+
+          // Обновляем language
+          final languageElements = document.findAllElements('language');
+          if (languageElements.isNotEmpty) {
+            final el = languageElements.first;
+            if (el.getAttribute('countryIsoCode') != languageCountryIsoCode) {
+              el.setAttribute('countryIsoCode', languageCountryIsoCode);
+              changed = true;
+            }
+            if (el.getAttribute('languageIsoCode') != languageIsoCode) {
+              el.setAttribute('languageIsoCode', languageIsoCode);
+              changed = true;
+            }
+          }
+
+          // Обновляем techName
+          final techNameElements = document.findAllElements('techName');
+          for (var el in techNameElements) {
+            if (el.innerText != techName) {
+              el.innerText = techName;
+              changed = true;
+            }
+          }
+
+          // Обновляем dataDistribution
+          final dataDistElements = document.findAllElements('dataDistribution');
+          for (var el in dataDistElements) {
+            if (el.innerText != dataDistribution) {
+              el.innerText = dataDistribution;
+              changed = true;
+            }
+          }
+
+          // Обновляем copyrightPara
+          final copyElements = document.findAllElements('copyrightPara');
+          for (var el in copyElements) {
+            if (el.innerText != copyrightPara) {
+              el.innerText = copyrightPara;
+              changed = true;
+            }
+          }
+
+          // Обновляем responsiblePartnerCompany
+          final respPartnerElements = document.findAllElements('responsiblePartnerCompany');
+          if (respPartnerElements.isNotEmpty) {
+            final el = respPartnerElements.first;
+            if (el.getAttribute('enterpriseCode') != partnerCode) {
+              el.setAttribute('enterpriseCode', partnerCode);
+              changed = true;
+            }
+            final entName = el.findElements('enterpriseName').firstOrNull;
+            if (entName != null && entName.innerText != partnerName) {
+              entName.innerText = partnerName;
+              changed = true;
+            }
+          }
+
+          // Обновляем originator
+          final origElements = document.findAllElements('originator');
+          if (origElements.isNotEmpty) {
+            final el = origElements.first;
+            if (el.getAttribute('enterpriseCode') != partnerCode) {
+              el.setAttribute('enterpriseCode', partnerCode);
+              changed = true;
+            }
+            final entName = el.findElements('enterpriseName').firstOrNull;
+            if (entName != null && entName.innerText != partnerName) {
+              entName.innerText = partnerName;
+              changed = true;
+            }
+          }
+
+          // Обновляем applic > displayText > simplePara
+          final applicElements = document.findAllElements('applic');
+          for (var applic in applicElements) {
+            final displayTexts = applic.findElements('displayText');
+            for (var dt in displayTexts) {
+              final paras = dt.findElements('simplePara');
+              if (paras.isNotEmpty && paras.first.innerText != techName) {
+                 paras.first.innerText = techName;
+                 changed = true;
+              }
+            }
+          }
+
+          // Обновляем brexDmRef
+          final brexDmRefElements = document.findAllElements('brexDmRef');
+          for (var brex in brexDmRefElements) {
+             final dmRefIdent = brex.findAllElements('dmRefIdent').firstOrNull;
+             final dmCode = dmRefIdent?.findAllElements('dmCode').firstOrNull;
+             if (dmCode != null) {
+                if (dmCode.getAttribute('modelIdentCode') != modelIdentCode) {
+                   dmCode.setAttribute('modelIdentCode', modelIdentCode);
+                   changed = true;
+                }
+                if (dmCode.getAttribute('infoCode') != brexInfoCode) {
+                   dmCode.setAttribute('infoCode', brexInfoCode);
+                   changed = true;
+                }
+                if (dmCode.getAttribute('itemLocationCode') != brexLocation) {
+                   dmCode.setAttribute('itemLocationCode', brexLocation);
+                   changed = true;
+                }
+             }
+          }
+
+          // Обновляем dmCode текущего документа
+          final dmCodeElements = document.findAllElements('dmCode');
+          for (var dmCode in dmCodeElements) {
+             if (dmCode.getAttribute('modelIdentCode') != modelIdentCode) {
+                 dmCode.setAttribute('modelIdentCode', modelIdentCode);
+                 changed = true;
+             }
+          }
+
+          if (changed) {
+            await file.writeAsString(document.toXmlString(pretty: true));
+          }
+        } catch (e) {
+          debugPrint('Ошибка при обновлении файла ${file.path}: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('Ошибка доступа к директории: $e');
+    }
+  }
+
   void closeProject() {
     workDir = null;
     notifyListeners();
@@ -123,62 +263,17 @@ class AppController with ChangeNotifier {
           content: SizedBox(
             width: double.maxFinite,
             child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DialogField(
-                    controller: modelIdentCodeCtrl,
-                    label: 'Model Ident Code (e.g. MI171A3)',
-                    mdAbout: 'about_model_ident_code.md',
-                    regExpPattern: RegExp(r'^[A-Z0-9]{2,14}$'),
-                    regExpErrorText: 'Формат: 2-14 символов (A-Z, 0-9)',
-                    maxLength: 14,
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]'))],
-                  ),
-                  DialogField(
-                    controller: languageIsoCodeCtrl,
-                    label: 'Language ISO Code (e.g. ru)',
-                    regExpPattern: RegExp(r'^[a-z]{2,3}$'),
-                    regExpErrorText: 'Формат: 2-3 символа (a-z)',
-                    maxLength: 3,
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-z]'))],
-                  ),
-                  DialogField(
-                    controller: languageCountryIsoCodeCtrl,
-                    label: 'Country ISO Code (e.g. RU)',
-                    regExpPattern: RegExp(r'^[A-Z]{2}$'),
-                    regExpErrorText: 'Формат: 2 символа (A-Z)',
-                    maxLength: 2,
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[A-Z]'))],
-                  ),
-                  DialogField(controller: techNameCtrl, label: 'Tech Name', mdAbout: 'about_tech_name.md'),
-                  DialogField(controller: partnerCodeCtrl, label: 'Partner Code', mdAbout: 'about_parthner_code.md'),
-                  DialogField(controller: partnerNameCtrl, label: 'Partner Name', mdAbout: 'about_parthner_name.md'),
-                  DialogField(
-                    controller: dataDistributionCtrl,
-                    label: 'Data Distribution',
-                    mdAbout: 'about_data_distribution.md',
-                  ),
-                  DialogField(controller: copyrightParaCtrl, label: 'Copyright Para'),
-                  DialogField(
-                    controller: brexInfoCodeCtrl,
-                    label: 'BREX Info Code (e.g. 022)',
-                    mdAbout: 'about_brex_info_code.md',
-                    regExpPattern: RegExp(r'^[A-Z0-9]{3}$'),
-                    regExpErrorText: 'Формат: 3 символа (A-Z, 0-9)',
-                    maxLength: 3,
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]'))],
-                  ),
-                  DialogField(
-                    controller: brexLocationCtrl,
-                    label: 'BREX Location (e.g. D)',
-                    mdAbout: 'about_brex_location.md',
-                    regExpPattern: RegExp(r'^[ABCDT]$'),
-                    regExpErrorText: 'Формат: 1 символ (A, B, C, D, T)',
-                    maxLength: 1,
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[ABCDT]'))],
-                  ),
-                ],
+              child: ProjectSettingsForm(
+                modelIdentCodeCtrl: modelIdentCodeCtrl,
+                languageIsoCodeCtrl: languageIsoCodeCtrl,
+                languageCountryIsoCodeCtrl: languageCountryIsoCodeCtrl,
+                techNameCtrl: techNameCtrl,
+                partnerCodeCtrl: partnerCodeCtrl,
+                partnerNameCtrl: partnerNameCtrl,
+                dataDistributionCtrl: dataDistributionCtrl,
+                copyrightParaCtrl: copyrightParaCtrl,
+                brexInfoCodeCtrl: brexInfoCodeCtrl,
+                brexLocationCtrl: brexLocationCtrl,
               ),
             ),
           ),
@@ -524,7 +619,7 @@ ${contentXml.toXmlString(pretty: true)}
     }
   }
 
-  Future<void> generateTOC(BuildContext context) async {
+  Future<void> generateTOC(BuildContext context, {bool openViewer = true}) async {
     if (workDir == null) return;
     print(workDir!.path);
     // Покажем лоадер, если файлов много
@@ -538,7 +633,22 @@ ${contentXml.toXmlString(pretty: true)}
       final entities = await workDir!.list().toList();
       final xmlFiles = entities.whereType<File>().where((f) => f.path.toLowerCase().endsWith('.xml'));
 
-      List<XmlElement> dmRefs = [];
+      final Map<String, String> infoCategories = {
+        '040': '040: Аварийные ситуации',
+        '050': '050: Сложные ситуации',
+        '030': '030: Контрольные карты',
+        '060': '060: Нормальная эксплуатация',
+        '020': '020: Ограничения',
+        '005': '005: ТМПО (MEL)',
+        '041': '041: Описание (системы/КСЭИС/АСО)',
+        '001': '001: Общие данные',
+      };
+
+      final List<String> categoryOrder = [
+        '040', '050', '030', '060', '020', '005', '041', '001'
+      ];
+
+      Map<String, List<XmlElement>> groupedRefs = {};
 
       for (var file in xmlFiles) {
         final fileName = file.uri.pathSegments.last;
@@ -552,15 +662,45 @@ ${contentXml.toXmlString(pretty: true)}
         final dmTitle = dmDoc.findAllElements('dmTitle').firstOrNull;
 
         if (dmIdent != null) {
+          final dmCode = dmIdent.findElements('dmCode').firstOrNull;
+          final infoCode = dmCode?.getAttribute('infoCode') ?? '';
+
           final dmRef = XmlElement(XmlName('dmRef'), [], [
             XmlElement(XmlName('dmRefIdent'), [], [
-              if (dmIdent.findElements('dmCode').isNotEmpty) dmIdent.findElements('dmCode').first.copy(),
+              if (dmCode != null) dmCode.copy(),
               if (dmIdent.findElements('issueInfo').isNotEmpty) dmIdent.findElements('issueInfo').first.copy(),
               if (dmIdent.findElements('language').isNotEmpty) dmIdent.findElements('language').first.copy(),
             ]),
             XmlElement(XmlName('dmRefAddressItems'), [], [if (dmTitle != null) dmTitle.copy()]),
           ]);
-          dmRefs.add(dmRef);
+          
+          groupedRefs.putIfAbsent(infoCode, () => []).add(dmRef);
+        }
+      }
+
+      List<XmlElement> pmEntries = [];
+
+      // Добавляем главный заголовок PMC (опционально, но S1000D допускает вложенные pmEntry)
+      for (var code in categoryOrder) {
+        if (groupedRefs.containsKey(code)) {
+          final refs = groupedRefs[code]!;
+          
+          final pmEntry = XmlElement(XmlName('pmEntry'), [], [
+            XmlElement(XmlName('pmEntryTitle'), [], [XmlText(infoCategories[code]!)]),
+            ...refs,
+          ]);
+          pmEntries.add(pmEntry);
+          groupedRefs.remove(code);
+        }
+      }
+
+      if (groupedRefs.isNotEmpty) {
+        for (var entry in groupedRefs.entries) {
+          final pmEntry = XmlElement(XmlName('pmEntry'), [], [
+            XmlElement(XmlName('pmEntryTitle'), [], [XmlText('Прочее (Код: ${entry.key})')]),
+            ...entry.value,
+          ]);
+          pmEntries.add(pmEntry);
         }
       }
 
@@ -584,7 +724,7 @@ ${contentXml.toXmlString(pretty: true)}
         dataDistribution: dataDistribution,
         copyrightPara: copyrightPara,
         brexHref: '', // Заглушка, можно тоже брать из params
-        dmRefs: dmRefs,
+        pmEntries: pmEntries,
       );
 
       final pmcFileName =
@@ -597,15 +737,17 @@ ${contentXml.toXmlString(pretty: true)}
       if (context.mounted) {
         Navigator.of(context, rootNavigator: true).pop(); // Закрыть лоадер
 
-        final document = XmlDocument.parse(pmcXml);
-        context.push(
-          '/pm_viewer',
-          extra: {
-            'document': document,
-            'fileName': pmcFileName,
-            'filePath': pmcFilePath,
-          },
-        );
+        if (openViewer) {
+          final document = XmlDocument.parse(pmcXml);
+          context.push(
+            '/pm_viewer',
+            extra: {
+              'document': document,
+              'fileName': pmcFileName,
+              'filePath': pmcFilePath,
+            },
+          );
+        }
       }
     } catch (e) {
       if (context.mounted) {

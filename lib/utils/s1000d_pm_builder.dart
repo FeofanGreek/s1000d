@@ -18,7 +18,7 @@ class S1000DPmBuilder {
     required String dataDistribution,
     required String copyrightPara,
     required String brexHref,
-    required List<xml.XmlElement> dmRefs,
+    required List<xml.XmlElement> pmEntries,
   }) {
     final now = DateTime.now();
     final year = now.year.toString();
@@ -132,21 +132,9 @@ class S1000DPmBuilder {
       });
 
       builder.element('content', nest: () {
-        builder.element('pmEntry', nest: () {
-          builder.element('pmEntryTitle', nest: () {
-            builder.text('Оглавление проекта');
-          });
-          
-          for (var dmRef in dmRefs) {
-             builder.element('dmRef', nest: () {
-               for (var child in dmRef.children) {
-                 if (child is xml.XmlElement) {
-                   builder.xml(child.toXmlString());
-                 }
-               }
-             });
-          }
-        });
+        for (var pmEntry in pmEntries) {
+          builder.xml(pmEntry.toXmlString());
+        }
       });
 
     });

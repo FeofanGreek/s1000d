@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../styles.dart';
 import '../controllers/app_controller.dart';
@@ -53,6 +54,11 @@ class StartScreen extends StatelessWidget {
             ],
           ),
           if (isProjectLoaded) ...[
+            IconButton(
+              icon: const Icon(Icons.settings),
+              tooltip: 'Настройки проекта',
+              onPressed: () => context.push('/project_settings'),
+            ),
             IconButton(
               icon: const Icon(Icons.folder),
               tooltip: 'Открыть проект',

@@ -40,6 +40,11 @@ class _CrewViewerContent extends StatelessWidget {
         appBar: AppBar(
           title: Text(controller.fileTitle ?? 'Crew Data Module'),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              tooltip: 'Настройки файла',
+              onPressed: () => controller.showFileSettingsDialog(context),
+            ),
             Row(
               children: [
                 const Text('Редактировать', style: TextStyle(fontSize: 14, color: QRHColors.textPrimary)),
@@ -87,6 +92,11 @@ class _CrewViewerContent extends StatelessWidget {
         appBar: AppBar(
           title: Text(controller.fileTitle ?? 'Чеклист экипажа (Crew)'),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              tooltip: 'Настройки файла',
+              onPressed: () => controller.showFileSettingsDialog(context),
+            ),
             Row(
               children: [
                 const Text('Редактировать', style: TextStyle(fontSize: 14, color: QRHColors.textPrimary)),
