@@ -400,6 +400,15 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
+  s1000d_validator:
+    dependency: "direct main"
+    description:
+      path: "."
+      ref: main
+      resolved-ref: "0cde68da1a00c5fc6b5a4bde55918facac1b746d"
+      url: "https://github.com/FeofanGreek/s1000dValidator.git"
+    source: git
+    version: "1.0.0"
   sky_engine:
     dependency: transitive
     description: flutter

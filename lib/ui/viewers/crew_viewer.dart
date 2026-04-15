@@ -7,6 +7,7 @@ import '../../../controllers/crew_viewer_controller.dart';
 import 'models/crew_models.dart';
 import 'widgets/crew_step_row.dart';
 import 'widgets/crew_attention_row.dart';
+import '../../../utils/validator_helper.dart';
 
 class CrewViewer extends StatelessWidget {
   final XmlDocument document;
@@ -29,6 +30,54 @@ class CrewViewer extends StatelessWidget {
 class _CrewViewerContent extends StatelessWidget {
   const _CrewViewerContent();
 
+  Future<void> _validateDocument(BuildContext context, CrewViewerController controller) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final validator = await ValidatorHelper.getValidator();
+      final xmlString = controller.document.toXmlString(pretty: true);
+      final result = await validator.validateString(xmlString);
+
+      if (!context.mounted) return;
+      Navigator.pop(context);
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(
+            result.isValid ? '✓ Валиден' : '✗ Ошибки валидации',
+            style: TextStyle(color: result.isValid ? Colors.green : Colors.red),
+          ),
+          content: SingleChildScrollView(
+            child: Text(result.toString(), style: const TextStyle(fontFamily: 'monospace')),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.verified_user),
+              tooltip: 'Проверить S1000D',
+              onPressed: () => _validateDocument(context, controller),
+            ),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Закрыть')),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      print(e);
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка: $e', style: const TextStyle(color: Colors.white)),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<CrewViewerController>();
@@ -40,6 +89,11 @@ class _CrewViewerContent extends StatelessWidget {
         appBar: AppBar(
           title: Text(controller.fileTitle ?? 'Crew Data Module'),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.verified_user),
+              tooltip: 'Проверить S1000D',
+              onPressed: () => _validateDocument(context, controller),
+            ),
             IconButton(
               icon: const Icon(Icons.settings),
               tooltip: 'Настройки файла',
@@ -92,6 +146,11 @@ class _CrewViewerContent extends StatelessWidget {
         appBar: AppBar(
           title: Text(controller.fileTitle ?? 'Чеклист экипажа (Crew)'),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.verified_user),
+              tooltip: 'Проверить S1000D',
+              onPressed: () => _validateDocument(context, controller),
+            ),
             IconButton(
               icon: const Icon(Icons.settings),
               tooltip: 'Настройки файла',
