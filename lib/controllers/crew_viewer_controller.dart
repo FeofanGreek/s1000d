@@ -107,6 +107,52 @@ class CrewViewerController extends ChangeNotifier {
 
       final steps = drill.findAllElements('crewDrillStep');
       for (var step in steps) {
+        if (step.parentElement?.name.local == 'case') continue;
+
+        final caseElements = step.findElements('case').toList();
+        if (caseElements.isNotEmpty) {
+          final titleNode = step.findElements('title').firstOrNull;
+          final paraNode = step.findElements('para').firstOrNull;
+
+          final cases = <CrewCaseItem>[];
+          for (var caseNode in caseElements) {
+            final caseCondNode = caseNode.findElements('caseCond').firstOrNull;
+            final innerStepNode = caseNode
+                .findElements('crewDrillStep')
+                .firstOrNull;
+            final innerParaNode = innerStepNode
+                ?.findElements('para')
+                .firstOrNull;
+
+            if (caseCondNode != null && innerStepNode != null) {
+              cases.add(
+                CrewCaseItem(
+                  conditionText: cleanText(caseCondNode.innerText),
+                  stepText: cleanText(
+                    innerParaNode?.innerText ?? innerStepNode.innerText,
+                  ),
+                  caseNode: caseNode,
+                  caseCondNode: caseCondNode,
+                  innerStepNode: innerStepNode,
+                  innerParaNode: innerParaNode,
+                ),
+              );
+            }
+          }
+
+          items.add(
+            CrewCondition(
+              title: cleanText(titleNode?.innerText ?? ''),
+              text: cleanText(paraNode?.innerText ?? ''),
+              stepNode: step,
+              titleNode: titleNode,
+              paraNode: paraNode,
+              cases: cases,
+            ),
+          );
+          continue;
+        }
+
         final titleNode = step.findElements('title').firstOrNull;
         if (titleNode != null) {
           final paraNode = step.findElements('para').firstOrNull;
@@ -679,6 +725,14 @@ class CrewViewerController extends ChangeNotifier {
           drill.findElements('title').isEmpty) {
         drill.parent?.children.remove(drill);
       }
+    } else if (item is CrewCondition) {
+      final drill = item.stepNode.parentElement;
+      item.stepNode.parentElement?.children.remove(item.stepNode);
+      if (drill != null &&
+          drill.findElements('crewDrillStep').isEmpty &&
+          drill.findElements('title').isEmpty) {
+        drill.parent?.children.remove(drill);
+      }
     } else if (item is CrewHeader) {
       item.titleNode?.parent?.children.remove(item.titleNode);
     } else if (item is CrewAttention) {
@@ -809,6 +863,100 @@ class CrewViewerController extends ChangeNotifier {
       hasChanges = true;
       parseCrewData();
     }
+  }
+
+  void addCondition() {
+    isEditMode = true;
+    final drills = document.findAllElements('crewDrill');
+    XmlElement? parentNode;
+    if (drills.isNotEmpty) {
+      parentNode = drills.last.parentElement;
+    } else {
+      parentNode =
+          document.findAllElements('crewRefCard').firstOrNull ??
+          document.findAllElements('crew').firstOrNull ??
+          document.rootElement;
+    }
+
+    if (parentNode != null) {
+      final newDrill = XmlElement(XmlName('crewDrill'));
+      final newStep = XmlElement(XmlName('crewDrillStep'));
+      final title = XmlElement(XmlName('title'), [], [
+        XmlText('Проверка состояния системы'),
+      ]);
+      final para = XmlElement(XmlName('para'), [], [
+        XmlText('Выберите состояние индикатора:'),
+      ]);
+
+      final case1 = XmlElement(XmlName('case'), [], [
+        XmlElement(XmlName('caseCond'), [], [
+          XmlText('Если индикатор горит ЗЕЛЕНЫМ:'),
+        ]),
+        XmlElement(XmlName('crewDrillStep'), [], [
+          XmlElement(XmlName('para'), [], [
+            XmlText('Продолжайте выполнение взлета.'),
+          ]),
+        ]),
+      ]);
+
+      final case2 = XmlElement(XmlName('case'), [], [
+        XmlElement(XmlName('caseCond'), [], [
+          XmlText('Если индикатор горит КРАСНЫМ:'),
+        ]),
+        XmlElement(XmlName('crewDrillStep'), [], [
+          XmlElement(XmlName('para'), [], [XmlText('Прекратите взлет.')]),
+        ]),
+      ]);
+
+      newStep.children.add(title);
+      newStep.children.add(para);
+      newStep.children.add(case1);
+      newStep.children.add(case2);
+      newDrill.children.add(newStep);
+
+      parentNode.children.add(newDrill);
+
+      hasChanges = true;
+      parseCrewData();
+    }
+  }
+
+  void addConditionCase(CrewCondition item) {
+    final caseNode = XmlElement(XmlName('case'), [], [
+      XmlElement(XmlName('caseCond'), [], [XmlText('Новое условие')]),
+      XmlElement(XmlName('crewDrillStep'), [], [
+        XmlElement(XmlName('para'), [], [XmlText('Действие')]),
+      ]),
+    ]);
+    item.stepNode.children.add(caseNode);
+    hasChanges = true;
+    parseCrewData();
+  }
+
+  void removeConditionCase(CrewCondition item, CrewCaseItem caseItem) {
+    item.stepNode.children.remove(caseItem.caseNode);
+    hasChanges = true;
+    parseCrewData();
+  }
+
+  void updateConditionTitle(CrewCondition item, String newTitle) {
+    item.title = newTitle;
+    updateXmlNodeText(item.titleNode, newTitle);
+  }
+
+  void updateConditionText(CrewCondition item, String newText) {
+    item.text = newText;
+    updateXmlNodeText(item.paraNode, newText);
+  }
+
+  void updateCaseCond(CrewCaseItem caseItem, String newText) {
+    caseItem.conditionText = newText;
+    updateXmlNodeText(caseItem.caseCondNode, newText);
+  }
+
+  void updateCaseStepText(CrewCaseItem caseItem, String newText) {
+    caseItem.stepText = newText;
+    updateXmlNodeText(caseItem.innerParaNode, newText);
   }
 
   void updateHeaderTitle(CrewHeader item, String newTitle) {

@@ -9,6 +9,7 @@ import 'widgets/crew_step_row.dart';
 import 'widgets/crew_attention_row.dart';
 import 'widgets/crew_reference_row.dart';
 import 'widgets/crew_description_row.dart';
+import 'widgets/crew_condition_row.dart';
 import '../../../utils/validator_helper.dart';
 
 class CrewViewer extends StatelessWidget {
@@ -284,6 +285,8 @@ class _CrewViewerContent extends StatelessWidget {
               return CrewAttentionRow(item: item);
             } else if (item is CrewDescription) {
               return CrewDescriptionRow(item: item);
+            } else if (item is CrewCondition) {
+              return CrewConditionRow(item: item);
             } else if (item is CrewStep) {
               if (item.dmRefNode != null) {
                 return CrewReferenceRow(step: item);
@@ -437,6 +440,13 @@ class _CrewEditToolsFabState extends State<_CrewEditToolsFab> {
             color: QRHColors.info,
             icon: Icons.article,
             label: 'Описание',
+          ),
+          _buildFabItem(
+            tag: 'add_condition',
+            onPressed: controller.addCondition,
+            color: Colors.purple,
+            icon: Icons.alt_route,
+            label: 'IF ELSE',
           ),
           _buildFabItem(
             tag: 'add_step',

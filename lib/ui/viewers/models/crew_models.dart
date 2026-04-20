@@ -60,3 +60,39 @@ class CrewDescription extends CrewItem {
     this.paraNode,
   });
 }
+
+class CrewCondition extends CrewItem {
+  String title;
+  String text;
+  final XmlElement stepNode;
+  final XmlElement? titleNode;
+  final XmlElement? paraNode;
+  final List<CrewCaseItem> cases;
+
+  CrewCondition({
+    required this.title,
+    required this.text,
+    required this.stepNode,
+    this.titleNode,
+    this.paraNode,
+    required this.cases,
+  });
+}
+
+class CrewCaseItem {
+  String conditionText;
+  String stepText;
+  final XmlElement caseNode;
+  final XmlElement caseCondNode;
+  final XmlElement innerStepNode;
+  final XmlElement? innerParaNode;
+
+  CrewCaseItem({
+    required this.conditionText,
+    required this.stepText,
+    required this.caseNode,
+    required this.caseCondNode,
+    required this.innerStepNode,
+    this.innerParaNode,
+  });
+}
