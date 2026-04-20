@@ -44,3 +44,19 @@ class CrewStep extends CrewItem {
     required this.parentStepNode,
   });
 }
+
+class CrewDescription extends CrewItem {
+  String title;
+  String text;
+  final XmlElement stepNode;
+  final XmlElement? titleNode;
+  final XmlElement? paraNode;
+
+  CrewDescription({
+    required this.title,
+    required this.text,
+    required this.stepNode,
+    this.titleNode,
+    this.paraNode,
+  });
+}

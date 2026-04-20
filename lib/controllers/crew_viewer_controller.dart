@@ -107,6 +107,21 @@ class CrewViewerController extends ChangeNotifier {
 
       final steps = drill.findAllElements('crewDrillStep');
       for (var step in steps) {
+        final titleNode = step.findElements('title').firstOrNull;
+        if (titleNode != null) {
+          final paraNode = step.findElements('para').firstOrNull;
+          items.add(
+            CrewDescription(
+              title: cleanText(titleNode.innerText),
+              text: cleanText(paraNode?.innerText ?? ''),
+              stepNode: step,
+              titleNode: titleNode,
+              paraNode: paraNode,
+            ),
+          );
+          continue; // Пропускаем остальную логику парсинга шагов
+        }
+
         final cr = step.findAllElements('challengeAndResponse').firstOrNull;
 
         if (cr != null) {
@@ -656,6 +671,14 @@ class CrewViewerController extends ChangeNotifier {
           drill.findElements('title').isEmpty) {
         drill.parent?.children.remove(drill);
       }
+    } else if (item is CrewDescription) {
+      final drill = item.stepNode.parentElement;
+      item.stepNode.parentElement?.children.remove(item.stepNode);
+      if (drill != null &&
+          drill.findElements('crewDrillStep').isEmpty &&
+          drill.findElements('title').isEmpty) {
+        drill.parent?.children.remove(drill);
+      }
     } else if (item is CrewHeader) {
       item.titleNode?.parent?.children.remove(item.titleNode);
     } else if (item is CrewAttention) {
@@ -698,6 +721,38 @@ class CrewViewerController extends ChangeNotifier {
       newCR.children.add(challenge);
       newCR.children.add(response);
       newStep.children.add(newCR);
+      newDrill.children.add(newStep);
+
+      parentNode.children.add(newDrill);
+
+      hasChanges = true;
+      parseCrewData();
+    }
+  }
+
+  void addDescription() {
+    isEditMode = true;
+    final drills = document.findAllElements('crewDrill');
+    XmlElement? parentNode;
+    if (drills.isNotEmpty) {
+      parentNode = drills.last.parentElement;
+    } else {
+      parentNode =
+          document.findAllElements('crewRefCard').firstOrNull ??
+          document.findAllElements('crew').firstOrNull ??
+          document.rootElement;
+    }
+
+    if (parentNode != null) {
+      final newDrill = XmlElement(XmlName('crewDrill'));
+      final newStep = XmlElement(XmlName('crewDrillStep'));
+      final title = XmlElement(XmlName('title'), [], [
+        XmlText('Заголовок описания'),
+      ]);
+      final para = XmlElement(XmlName('para'), [], [XmlText('Текст описания')]);
+
+      newStep.children.add(title);
+      newStep.children.add(para);
       newDrill.children.add(newStep);
 
       parentNode.children.add(newDrill);
@@ -759,6 +814,16 @@ class CrewViewerController extends ChangeNotifier {
   void updateHeaderTitle(CrewHeader item, String newTitle) {
     item.title = newTitle;
     updateXmlNodeText(item.titleNode, newTitle);
+  }
+
+  void updateDescriptionTitle(CrewDescription item, String newTitle) {
+    item.title = newTitle;
+    updateXmlNodeText(item.titleNode, newTitle);
+  }
+
+  void updateDescriptionText(CrewDescription item, String newText) {
+    item.text = newText;
+    updateXmlNodeText(item.paraNode, newText);
   }
 
   void updateReferenceText(CrewStep step, String newText) {
