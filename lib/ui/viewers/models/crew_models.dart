@@ -30,6 +30,12 @@ class CrewStep extends CrewItem {
   XmlElement? groupNode;
   final XmlElement parentStepNode;
 
+  /// Reference to parent CrewCondition if this step is inside a case
+  CrewCondition? parentCondition;
+
+  /// Reference to CrewCaseItem if this step is inside a case
+  CrewCaseItem? parentCaseItem;
+
   CrewStep({
     required this.challenge,
     required this.response,
@@ -42,6 +48,8 @@ class CrewStep extends CrewItem {
     this.responseNode,
     this.groupNode,
     required this.parentStepNode,
+    this.parentCondition,
+    this.parentCaseItem,
   });
 }
 
@@ -52,13 +60,7 @@ class CrewDescription extends CrewItem {
   final XmlElement? titleNode;
   final XmlElement? paraNode;
 
-  CrewDescription({
-    required this.title,
-    required this.text,
-    required this.stepNode,
-    this.titleNode,
-    this.paraNode,
-  });
+  CrewDescription({required this.title, required this.text, required this.stepNode, this.titleNode, this.paraNode});
 }
 
 class CrewCondition extends CrewItem {
@@ -86,6 +88,9 @@ class CrewCaseItem {
   final XmlElement caseCondNode;
   final XmlElement innerStepNode;
   final XmlElement? innerParaNode;
+
+  /// CrewStep representation of this case's action (stepText part)
+  late CrewStep asCrewStep;
 
   CrewCaseItem({
     required this.conditionText,
