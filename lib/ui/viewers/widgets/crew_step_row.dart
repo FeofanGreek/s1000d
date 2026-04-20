@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:xml/xml.dart';
 import '../../../styles.dart';
 import '../models/crew_models.dart';
 import '../../../controllers/crew_viewer_controller.dart';
 import 'dashed_line.dart';
+import 'pm_dm_ref_widget.dart';
 
 class CrewStepRow extends StatefulWidget {
   final CrewStep step;
@@ -28,10 +30,12 @@ class _CrewStepRowState extends State<CrewStepRow> {
   @override
   void didUpdateWidget(covariant CrewStepRow oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.step.challenge != widget.step.challenge && _challengeCtrl.text != widget.step.challenge) {
+    if (oldWidget.step.challenge != widget.step.challenge &&
+        _challengeCtrl.text != widget.step.challenge) {
       _challengeCtrl.text = widget.step.challenge;
     }
-    if (oldWidget.step.response != widget.step.response && _responseCtrl.text != widget.step.response) {
+    if (oldWidget.step.response != widget.step.response &&
+        _responseCtrl.text != widget.step.response) {
       _responseCtrl.text = widget.step.response;
     }
   }
@@ -50,8 +54,15 @@ class _CrewStepRowState extends State<CrewStepRow> {
     final isChecked = widget.step.stateIndex < controller.checkboxStates.length
         ? controller.checkboxStates[widget.step.stateIndex]
         : false;
-    final textColor = isChecked ? QRHColors.textTertiary : QRHColors.textPrimary;
-    final secondaryTextColor = isChecked ? QRHColors.textTertiary : QRHColors.textSecondary;
+    final textColor = isChecked
+        ? QRHColors.textTertiary
+        : QRHColors.textPrimary;
+    final secondaryTextColor = isChecked
+        ? QRHColors.textTertiary
+        : QRHColors.textSecondary;
+
+    final bool isSimpleTextStep = widget.step.simpleText != null;
+    final bool isChallengeResponseStep = !isSimpleTextStep;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
@@ -63,30 +74,46 @@ class _CrewStepRowState extends State<CrewStepRow> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // --- Challenge (Вызов) ---
-              if (widget.step.challenge.isNotEmpty || isEditMode)
+              if (isChallengeResponseStep &&
+                  (widget.step.challenge.isNotEmpty || isEditMode))
                 ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxTextWidth),
                   child: isEditMode
                       ? TextFormField(
                           controller: _challengeCtrl,
-                          style: const TextStyle(fontSize: 16, color: QRHColors.info, fontWeight: FontWeight.bold, height: 1.2),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: QRHColors.info,
+                            fontWeight: FontWeight.bold,
+                            height: 1.2,
+                          ),
                           maxLines: null,
                           textAlignVertical: TextAlignVertical.center,
                           decoration: InputDecoration(
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 12,
+                            ),
                             border: const OutlineInputBorder(),
                             suffixIcon: IconButton(
-                              icon: const Icon(Icons.clear, color: QRHColors.textSecondary),
+                              icon: const Icon(
+                                Icons.clear,
+                                color: QRHColors.textSecondary,
+                              ),
                               padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
                               onPressed: () {
                                 _challengeCtrl.clear();
                                 controller.updateStepChallenge(widget.step, '');
                               },
                             ),
                           ),
-                          onChanged: (val) => controller.updateStepChallenge(widget.step, val),
+                          onChanged: (val) =>
+                              controller.updateStepChallenge(widget.step, val),
                         )
                       : Text(
                           widget.step.challenge,
@@ -94,68 +121,116 @@ class _CrewStepRowState extends State<CrewStepRow> {
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                             color: textColor,
-                            decoration: isChecked ? TextDecoration.lineThrough : null,
+                            decoration: isChecked
+                                ? TextDecoration.lineThrough
+                                : null,
                           ),
                         ),
                 ),
 
               // --- Divider (Точечная линия) ---
-              if (widget.step.challenge.isNotEmpty && widget.step.response.isNotEmpty && !isEditMode)
+              if (isChallengeResponseStep &&
+                  widget.step.challenge.isNotEmpty &&
+                  widget.step.response.isNotEmpty &&
+                  !isEditMode)
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: DashedLine(color: isChecked ? QRHColors.dividerColor : QRHColors.textTertiary),
+                    child: DashedLine(
+                      color: isChecked
+                          ? QRHColors.dividerColor
+                          : QRHColors.textTertiary,
+                    ),
                   ),
                 ),
 
               if (isEditMode) const Expanded(child: SizedBox(width: 16)),
 
-              // --- Простой текст (если нет challenge/response) ---
-              if (widget.step.simpleText != null)
+              // --- Простой текст (если нет challenge/response и нет ссылки) ---
+              if (isSimpleTextStep)
                 Expanded(
-                  child: Text(
-                    widget.step.simpleText!,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: textColor,
-                      decoration: isChecked ? TextDecoration.lineThrough : null,
-                    ),
-                  ),
+                  child: isEditMode
+                      ? TextFormField(
+                          initialValue: widget.step.simpleText,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: QRHColors.textPrimary,
+                            height: 1.2,
+                          ),
+                          maxLines: null,
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 12,
+                            ),
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (val) =>
+                              controller.updateSimpleText(widget.step, val),
+                        )
+                      : Text(
+                          widget.step.simpleText!,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: textColor,
+                            decoration: isChecked
+                                ? TextDecoration.lineThrough
+                                : null,
+                          ),
+                        ),
                 ),
 
               // --- Response (Ответ) ---
-              if (widget.step.response.isNotEmpty || isEditMode)
+              if (isChallengeResponseStep &&
+                  (widget.step.response.isNotEmpty || isEditMode))
                 ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxTextWidth),
                   child: isEditMode
                       ? TextFormField(
                           controller: _responseCtrl,
-                          style: const TextStyle(fontSize: 16, color: QRHColors.info, height: 1.2),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: QRHColors.info,
+                            height: 1.2,
+                          ),
                           maxLines: null,
                           textAlign: TextAlign.right,
                           textAlignVertical: TextAlignVertical.center,
                           decoration: InputDecoration(
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 12,
+                            ),
                             border: const OutlineInputBorder(),
                             suffixIcon: IconButton(
-                              icon: const Icon(Icons.clear, color: QRHColors.textSecondary),
+                              icon: const Icon(
+                                Icons.clear,
+                                color: QRHColors.textSecondary,
+                              ),
                               padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
                               onPressed: () {
                                 _responseCtrl.clear();
                                 controller.updateStepResponse(widget.step, '');
                               },
                             ),
                           ),
-                          onChanged: (val) => controller.updateStepResponse(widget.step, val),
+                          onChanged: (val) =>
+                              controller.updateStepResponse(widget.step, val),
                         )
                       : Text(
                           widget.step.response,
                           style: TextStyle(
                             fontSize: 16,
                             color: secondaryTextColor,
-                            decoration: isChecked ? TextDecoration.lineThrough : null,
+                            decoration: isChecked
+                                ? TextDecoration.lineThrough
+                                : null,
                           ),
                           textAlign: TextAlign.right,
                         ),
@@ -173,29 +248,43 @@ class _CrewStepRowState extends State<CrewStepRow> {
                           ? Chip(
                               label: Text(
                                 cm.toUpperCase(),
-                                style: const TextStyle(fontSize: 10, color: QRHColors.textPrimary),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: QRHColors.textPrimary,
+                                ),
                               ),
-                              onDeleted: () => controller.removeCrewMember(widget.step, cm),
+                              onDeleted: () =>
+                                  controller.removeCrewMember(widget.step, cm),
                               deleteIcon: const Icon(Icons.close, size: 14),
                               backgroundColor: QRHColors.accentBg,
                               padding: EdgeInsets.zero,
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
                             )
                           : Container(
                               margin: const EdgeInsets.only(right: 4.0),
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
-                                color: isChecked ? QRHColors.accentBg : QRHColors.info.withValues(alpha: 0.2),
+                                color: isChecked
+                                    ? QRHColors.accentBg
+                                    : QRHColors.info.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(
-                                  color: isChecked ? QRHColors.dividerColor : QRHColors.info.withValues(alpha: 0.5),
+                                  color: isChecked
+                                      ? QRHColors.dividerColor
+                                      : QRHColors.info.withValues(alpha: 0.5),
                                 ),
                               ),
                               child: Text(
                                 cm.toUpperCase(),
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: isChecked ? QRHColors.textTertiary : QRHColors.info,
+                                  color: isChecked
+                                      ? QRHColors.textTertiary
+                                      : QRHColors.info,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -203,17 +292,26 @@ class _CrewStepRowState extends State<CrewStepRow> {
                     ),
                     if (isEditMode)
                       InkWell(
-                        onTap: () => controller.showAddCrewMemberDialog(context, widget.step),
+                        onTap: () => controller.showAddCrewMemberDialog(
+                          context,
+                          widget.step,
+                        ),
                         child: Container(
                           margin: const EdgeInsets.only(top: 4),
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             border: Border.all(color: QRHColors.info),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Text(
                             '+',
-                            style: TextStyle(color: QRHColors.info, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: QRHColors.info,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
@@ -224,10 +322,16 @@ class _CrewStepRowState extends State<CrewStepRow> {
               if (!isEditMode)
                 Checkbox(
                   value: isChecked,
-                  onChanged: (val) => controller.setCheckbox(widget.step.stateIndex, val ?? false),
+                  onChanged: (val) => controller.setCheckbox(
+                    widget.step.stateIndex,
+                    val ?? false,
+                  ),
                   activeColor: QRHColors.success,
                   checkColor: QRHColors.primaryBg,
-                  side: const BorderSide(color: QRHColors.textTertiary, width: 2),
+                  side: const BorderSide(
+                    color: QRHColors.textTertiary,
+                    width: 2,
+                  ),
                 )
               else
                 IconButton(

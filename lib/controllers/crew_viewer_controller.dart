@@ -21,7 +21,12 @@ class CrewViewerController extends ChangeNotifier {
   bool isEditMode = false;
   bool hasChanges = false;
 
-  CrewViewerController({required this.document, required this.fileName, this.filePath, this.fileTitle}) {
+  CrewViewerController({
+    required this.document,
+    required this.fileName,
+    this.filePath,
+    this.fileTitle,
+  }) {
     parseCrewData();
   }
 
@@ -46,13 +51,24 @@ class CrewViewerController extends ChangeNotifier {
     if (crewRefCard != null) {
       final mainTitleNode = crewRefCard.findElements('title').firstOrNull;
       if (mainTitleNode != null) {
-        items.add(CrewHeader(cleanText(mainTitleNode.innerText), titleNode: mainTitleNode));
+        items.add(
+          CrewHeader(
+            cleanText(mainTitleNode.innerText),
+            titleNode: mainTitleNode,
+          ),
+        );
       }
       for (var child in crewRefCard.children) {
         if (child is XmlElement) {
-          if (child.name.local == 'warning' || child.name.local == 'caution' || child.name.local == 'note') {
+          if (child.name.local == 'warning' ||
+              child.name.local == 'caution' ||
+              child.name.local == 'note') {
             final type = child.name.local;
-            final paraNode = child.findAllElements(type == 'note' ? 'notePara' : 'warningAndCautionPara').firstOrNull;
+            final paraNode = child
+                .findAllElements(
+                  type == 'note' ? 'notePara' : 'warningAndCautionPara',
+                )
+                .firstOrNull;
             final text = cleanText(paraNode?.innerText ?? child.innerText);
             items.add(CrewAttention(type: type, text: text, node: child));
           }
@@ -63,16 +79,26 @@ class CrewViewerController extends ChangeNotifier {
     final drills = document.findAllElements('crewDrill');
 
     for (var drill in drills) {
-      final titleNode = drill.findElements('title').firstOrNull ?? drill.findElements('name').firstOrNull;
+      final titleNode =
+          drill.findElements('title').firstOrNull ??
+          drill.findElements('name').firstOrNull;
       if (titleNode != null) {
-        items.add(CrewHeader(cleanText(titleNode.innerText), titleNode: titleNode));
+        items.add(
+          CrewHeader(cleanText(titleNode.innerText), titleNode: titleNode),
+        );
       }
 
       for (var child in drill.children) {
         if (child is XmlElement) {
-          if (child.name.local == 'warning' || child.name.local == 'caution' || child.name.local == 'note') {
+          if (child.name.local == 'warning' ||
+              child.name.local == 'caution' ||
+              child.name.local == 'note') {
             final type = child.name.local;
-            final paraNode = child.findAllElements(type == 'note' ? 'notePara' : 'warningAndCautionPara').firstOrNull;
+            final paraNode = child
+                .findAllElements(
+                  type == 'note' ? 'notePara' : 'warningAndCautionPara',
+                )
+                .firstOrNull;
             final text = cleanText(paraNode?.innerText ?? child.innerText);
             items.add(CrewAttention(type: type, text: text, node: child));
           }
@@ -91,7 +117,8 @@ class CrewViewerController extends ChangeNotifier {
 
           final members = <String>[];
           final group =
-              cr.findAllElements('crewMemberGroup').firstOrNull ?? step.findAllElements('crewMemberGroup').firstOrNull;
+              cr.findAllElements('crewMemberGroup').firstOrNull ??
+              step.findAllElements('crewMemberGroup').firstOrNull;
 
           if (group != null) {
             for (var member in group.findAllElements('crewMember')) {
@@ -113,24 +140,63 @@ class CrewViewerController extends ChangeNotifier {
             ),
           );
           checkboxStates.add(
-            checkboxStates.length < oldCheckboxStates.length ? oldCheckboxStates[checkboxStates.length] : false,
+            checkboxStates.length < oldCheckboxStates.length
+                ? oldCheckboxStates[checkboxStates.length]
+                : false,
           );
         } else {
-          final simpleText = cleanText(step.innerText);
-          if (simpleText.isNotEmpty) {
+          final paraWithDmRef = step
+              .findElements('para')
+              .where((p) => p.findElements('dmRef').isNotEmpty)
+              .firstOrNull;
+          if (paraWithDmRef != null) {
+            final dmRefNode = paraWithDmRef.findElements('dmRef').first;
+            String refText = '';
+            for (var node in paraWithDmRef.children) {
+              if (node == dmRefNode) break;
+              if (node is XmlText) {
+                refText += node.value;
+              }
+            }
+            // Убираем двойные пробелы, но сохраняем начальные/конечные пробелы
+            // чтобы можно было нормально редактировать текст в поле
+            refText = refText.replaceAll(RegExp(r'  +'), ' ');
+
             items.add(
               CrewStep(
                 challenge: '',
                 response: '',
-                simpleText: simpleText,
+                referenceText: refText,
+                dmRefNode: dmRefNode,
                 crewMembers: [],
                 stateIndex: checkboxStates.length,
                 parentStepNode: step,
               ),
             );
             checkboxStates.add(
-              checkboxStates.length < oldCheckboxStates.length ? oldCheckboxStates[checkboxStates.length] : false,
+              checkboxStates.length < oldCheckboxStates.length
+                  ? oldCheckboxStates[checkboxStates.length]
+                  : false,
             );
+          } else {
+            final simpleText = cleanText(step.innerText);
+            if (simpleText.isNotEmpty) {
+              items.add(
+                CrewStep(
+                  challenge: '',
+                  response: '',
+                  simpleText: simpleText,
+                  crewMembers: [],
+                  stateIndex: checkboxStates.length,
+                  parentStepNode: step,
+                ),
+              );
+              checkboxStates.add(
+                checkboxStates.length < oldCheckboxStates.length
+                    ? oldCheckboxStates[checkboxStates.length]
+                    : false,
+              );
+            }
           }
         }
       }
@@ -156,19 +222,27 @@ class CrewViewerController extends ChangeNotifier {
     if (filePath != null) {
       try {
         final file = File(filePath!);
-        await file.writeAsString(document.toXmlString(pretty: true, indent: ' '));
+        await file.writeAsString(
+          document.toXmlString(pretty: true, indent: ' '),
+        );
         hasChanges = false;
         notifyListeners();
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Изменения успешно сохранены!'), backgroundColor: QRHColors.success),
+            const SnackBar(
+              content: Text('Изменения успешно сохранены!'),
+              backgroundColor: QRHColors.success,
+            ),
           );
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Ошибка сохранения: $e'), backgroundColor: QRHColors.danger));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Ошибка сохранения: $e'),
+              backgroundColor: QRHColors.danger,
+            ),
+          );
         }
       }
     }
@@ -191,7 +265,8 @@ class CrewViewerController extends ChangeNotifier {
     final infoNameCtrl = TextEditingController(text: currentTitle);
 
     final formKey = GlobalKey<FileSettingsFormState>();
-    bool isValid = true; // initially true because we open an existing valid file
+    bool isValid =
+        true; // initially true because we open an existing valid file
 
     final result = await showDialog<Map<String, String>>(
       context: context,
@@ -208,7 +283,10 @@ class CrewViewerController extends ChangeNotifier {
 
             return AlertDialog(
               backgroundColor: QRHColors.secondaryBg,
-              title: const Text('Настройки файла', style: TextStyle(color: QRHColors.textPrimary)),
+              title: const Text(
+                'Настройки файла',
+                style: TextStyle(color: QRHColors.textPrimary),
+              ),
               content: SingleChildScrollView(
                 child: FileSettingsForm(
                   key: formKey,
@@ -217,10 +295,17 @@ class CrewViewerController extends ChangeNotifier {
                   infoCodeVarCtrl: infoCodeVarCtrl,
                   infoNameCtrl: infoNameCtrl,
                   isFileExists: (sys, info, varCode) {
-                    if (sys == currentSysCode && info == currentInfoCode && varCode == currentVariant) {
+                    if (sys == currentSysCode &&
+                        info == currentInfoCode &&
+                        varCode == currentVariant) {
                       return false;
                     }
-                    return appCtrl.isDmCodeOccupied(sys, info, varCode, diffCode: 'AAA');
+                    return appCtrl.isDmCodeOccupied(
+                      sys,
+                      info,
+                      varCode,
+                      diffCode: 'AAA',
+                    );
                   },
                   onValidationChanged: onValidationChanged,
                 ),
@@ -228,7 +313,10 @@ class CrewViewerController extends ChangeNotifier {
               actions: [
                 TextButton(
                   onPressed: () => ctx.pop(),
-                  child: const Text('Отмена', style: TextStyle(color: QRHColors.danger)),
+                  child: const Text(
+                    'Отмена',
+                    style: TextStyle(color: QRHColors.danger),
+                  ),
                 ),
                 ElevatedButton(
                   onPressed: !isValid
@@ -237,16 +325,24 @@ class CrewViewerController extends ChangeNotifier {
                           ctx.pop({
                             'sysCode': sysCodeCtrl.text.trim().toUpperCase(),
                             'infoCode': infoCodeCtrl.text.trim(),
-                            'infoCodeVar': infoCodeVarCtrl.text.trim().toUpperCase(),
+                            'infoCodeVar': infoCodeVarCtrl.text
+                                .trim()
+                                .toUpperCase(),
                             'infoName': infoNameCtrl.text.trim(),
                           });
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: !isValid ? Colors.transparent : QRHColors.success.withValues(alpha: 0.2),
+                    backgroundColor: !isValid
+                        ? Colors.transparent
+                        : QRHColors.success.withValues(alpha: 0.2),
                   ),
                   child: Text(
                     'Сохранить',
-                    style: TextStyle(color: !isValid ? QRHColors.textSecondary : QRHColors.success),
+                    style: TextStyle(
+                      color: !isValid
+                          ? QRHColors.textSecondary
+                          : QRHColors.success,
+                    ),
                   ),
                 ),
               ],
@@ -265,9 +361,18 @@ class CrewViewerController extends ChangeNotifier {
       bool xmlChanged = false;
 
       if (dmCodeNode != null) {
-        if (currentSysCode != newSysCode) { dmCodeNode.setAttribute('systemCode', newSysCode); xmlChanged = true; }
-        if (currentInfoCode != newInfoCode) { dmCodeNode.setAttribute('infoCode', newInfoCode); xmlChanged = true; }
-        if (currentVariant != newVariant) { dmCodeNode.setAttribute('infoCodeVariant', newVariant); xmlChanged = true; }
+        if (currentSysCode != newSysCode) {
+          dmCodeNode.setAttribute('systemCode', newSysCode);
+          xmlChanged = true;
+        }
+        if (currentInfoCode != newInfoCode) {
+          dmCodeNode.setAttribute('infoCode', newInfoCode);
+          xmlChanged = true;
+        }
+        if (currentVariant != newVariant) {
+          dmCodeNode.setAttribute('infoCodeVariant', newVariant);
+          xmlChanged = true;
+        }
       }
 
       final infoNameNodes = document.findAllElements('infoName');
@@ -277,7 +382,7 @@ class CrewViewerController extends ChangeNotifier {
           xmlChanged = true;
         }
       }
-      
+
       final titleNodes = document.findAllElements('title');
       if (titleNodes.isNotEmpty) {
         final mainTitle = titleNodes.first;
@@ -290,11 +395,13 @@ class CrewViewerController extends ChangeNotifier {
       if (xmlChanged) {
         hasChanges = true;
         fileTitle = newInfoName;
-        
+
         if (filePath != null && !kIsWeb) {
           try {
             // Check if dmCode actually changed. If yes, calculate new file name and rename.
-            if (currentSysCode != newSysCode || currentInfoCode != newInfoCode || currentVariant != newVariant) {
+            if (currentSysCode != newSysCode ||
+                currentInfoCode != newInfoCode ||
+                currentVariant != newVariant) {
               final oldFile = File(filePath!);
               final params = appCtrl.createChecklistParams(
                 infoName: newInfoName,
@@ -303,13 +410,14 @@ class CrewViewerController extends ChangeNotifier {
                 infoCodeVariant: newVariant,
                 systemDiffCode: 'AAA', // Assuming crew diff code
               );
-              
+
               final newFileName = params.getFileName();
               final dir = oldFile.parent;
-              final newFilePath = '${dir.path}${Platform.pathSeparator}$newFileName';
-              
+              final newFilePath =
+                  '${dir.path}${Platform.pathSeparator}$newFileName';
+
               await oldFile.rename(newFilePath);
-              
+
               fileName = newFileName;
               filePath = newFilePath;
             }
@@ -323,12 +431,15 @@ class CrewViewerController extends ChangeNotifier {
           } catch (e) {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Ошибка переименования/сохранения: $e'), backgroundColor: QRHColors.danger)
+                SnackBar(
+                  content: Text('Ошибка переименования/сохранения: $e'),
+                  backgroundColor: QRHColors.danger,
+                ),
               );
             }
           }
         }
-        
+
         notifyListeners();
       }
     }
@@ -340,7 +451,10 @@ class CrewViewerController extends ChangeNotifier {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: QRHColors.secondaryBg,
-        title: const Text('Есть несохраненные изменения', style: TextStyle(color: QRHColors.textPrimary)),
+        title: const Text(
+          'Есть несохраненные изменения',
+          style: TextStyle(color: QRHColors.textPrimary),
+        ),
         content: const Text(
           'Вы уверены, что хотите выйти без сохранения?',
           style: TextStyle(color: QRHColors.textSecondary),
@@ -348,11 +462,17 @@ class CrewViewerController extends ChangeNotifier {
         actions: [
           TextButton(
             onPressed: () => context.pop(false),
-            child: const Text('Отмена', style: TextStyle(color: QRHColors.info)),
+            child: const Text(
+              'Отмена',
+              style: TextStyle(color: QRHColors.info),
+            ),
           ),
           TextButton(
             onPressed: () => context.pop(true),
-            child: const Text('Выйти', style: TextStyle(color: QRHColors.danger)),
+            child: const Text(
+              'Выйти',
+              style: TextStyle(color: QRHColors.danger),
+            ),
           ),
         ],
       ),
@@ -361,7 +481,8 @@ class CrewViewerController extends ChangeNotifier {
   }
 
   void completeChecklist(BuildContext context) {
-    final allChecked = checkboxStates.isNotEmpty && checkboxStates.every((state) => state);
+    final allChecked =
+        checkboxStates.isNotEmpty && checkboxStates.every((state) => state);
 
     if (!allChecked) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -374,9 +495,12 @@ class CrewViewerController extends ChangeNotifier {
       return;
     }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Чеклист успешно завершен!'), backgroundColor: QRHColors.success));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Чеклист успешно завершен!'),
+        backgroundColor: QRHColors.success,
+      ),
+    );
   }
 
   void updateXmlNodeText(XmlElement? node, String newText) {
@@ -411,7 +535,10 @@ class CrewViewerController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> showAddCrewMemberDialog(BuildContext context, CrewStep step) async {
+  Future<void> showAddCrewMemberDialog(
+    BuildContext context,
+    CrewStep step,
+  ) async {
     String? newCm;
 
     final Map<String, String> crewRoles = {
@@ -430,18 +557,31 @@ class CrewViewerController extends ChangeNotifier {
           builder: (context, setState) {
             return AlertDialog(
               backgroundColor: QRHColors.secondaryBg,
-              title: const Text('Добавить роль', style: TextStyle(color: QRHColors.textPrimary)),
+              title: const Text(
+                'Добавить роль',
+                style: TextStyle(color: QRHColors.textPrimary),
+              ),
               content: DropdownButtonFormField<String>(
                 value: newCm,
                 dropdownColor: QRHColors.secondaryBg,
                 style: const TextStyle(color: QRHColors.textPrimary),
                 decoration: const InputDecoration(
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: QRHColors.borderColor)),
-                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: QRHColors.info)),
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: QRHColors.borderColor),
+                  ),
+                  focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: QRHColors.info),
+                  ),
                 ),
-                hint: const Text('Выберите роль...', style: TextStyle(color: QRHColors.textTertiary)),
+                hint: const Text(
+                  'Выберите роль...',
+                  style: TextStyle(color: QRHColors.textTertiary),
+                ),
                 items: crewRoles.entries.map((entry) {
-                  return DropdownMenuItem<String>(value: entry.key, child: Text(entry.value));
+                  return DropdownMenuItem<String>(
+                    value: entry.key,
+                    child: Text(entry.value),
+                  );
                 }).toList(),
                 onChanged: (value) {
                   setState(() {
@@ -452,13 +592,20 @@ class CrewViewerController extends ChangeNotifier {
               actions: [
                 TextButton(
                   onPressed: () => ctx.pop(false),
-                  child: const Text('Отмена', style: TextStyle(color: QRHColors.info)),
+                  child: const Text(
+                    'Отмена',
+                    style: TextStyle(color: QRHColors.info),
+                  ),
                 ),
                 TextButton(
                   onPressed: newCm != null ? () => ctx.pop(true) : null,
                   child: Text(
                     'Добавить',
-                    style: TextStyle(color: newCm != null ? QRHColors.success : QRHColors.textSecondary),
+                    style: TextStyle(
+                      color: newCm != null
+                          ? QRHColors.success
+                          : QRHColors.textSecondary,
+                    ),
                   ),
                 ),
               ],
@@ -475,7 +622,10 @@ class CrewViewerController extends ChangeNotifier {
         final newGroup = XmlElement(XmlName('crewMemberGroup'));
         final cr = step.challengeNode?.parentElement;
         if (cr != null) {
-          final responseNode = cr.children.whereType<XmlElement>().where((e) => e.name.local == 'response').firstOrNull;
+          final responseNode = cr.children
+              .whereType<XmlElement>()
+              .where((e) => e.name.local == 'response')
+              .firstOrNull;
           if (responseNode != null) {
             final index = cr.children.indexOf(responseNode);
             cr.children.insert(index, newGroup);
@@ -487,7 +637,9 @@ class CrewViewerController extends ChangeNotifier {
       }
 
       step.groupNode?.children.add(
-        XmlElement(XmlName('crewMember'), [XmlAttribute(XmlName('crewMemberType'), newCm!)]),
+        XmlElement(XmlName('crewMember'), [
+          XmlAttribute(XmlName('crewMemberType'), newCm!),
+        ]),
       );
 
       hasChanges = true;
@@ -499,7 +651,9 @@ class CrewViewerController extends ChangeNotifier {
     if (item is CrewStep) {
       final drill = item.parentStepNode.parentElement;
       item.parentStepNode.parent?.children.remove(item.parentStepNode);
-      if (drill != null && drill.findElements('crewDrillStep').isEmpty && drill.findElements('title').isEmpty) {
+      if (drill != null &&
+          drill.findElements('crewDrillStep').isEmpty &&
+          drill.findElements('title').isEmpty) {
         drill.parent?.children.remove(drill);
       }
     } else if (item is CrewHeader) {
@@ -507,7 +661,9 @@ class CrewViewerController extends ChangeNotifier {
     } else if (item is CrewAttention) {
       final parent = item.node.parentElement;
       item.node.parentElement?.children.remove(item.node);
-      if (parent != null && parent.name.local == 'crewDrill' && parent.children.whereType<XmlElement>().isEmpty) {
+      if (parent != null &&
+          parent.name.local == 'crewDrill' &&
+          parent.children.whereType<XmlElement>().isEmpty) {
         parent.parentElement?.children.remove(parent);
       }
     }
@@ -557,9 +713,15 @@ class CrewViewerController extends ChangeNotifier {
     if (refCard != null) {
       final node = XmlElement(XmlName(type));
       if (type == 'note') {
-        node.children.add(XmlElement(XmlName('notePara'), [], [XmlText('Новое примечание')]));
+        node.children.add(
+          XmlElement(XmlName('notePara'), [], [XmlText('Новое примечание')]),
+        );
       } else {
-        node.children.add(XmlElement(XmlName('warningAndCautionPara'), [], [XmlText('Новое сообщение')]));
+        node.children.add(
+          XmlElement(XmlName('warningAndCautionPara'), [], [
+            XmlText('Новое сообщение'),
+          ]),
+        );
       }
       final drillNode = XmlElement(XmlName('crewDrill'), [], [node]);
       refCard.children.add(drillNode);
@@ -583,7 +745,9 @@ class CrewViewerController extends ChangeNotifier {
 
     if (parentNode != null) {
       final newDrill = XmlElement(XmlName('crewDrill'));
-      final title = XmlElement(XmlName('title'), [], [XmlText('Новый заголовок')]);
+      final title = XmlElement(XmlName('title'), [], [
+        XmlText('Новый заголовок'),
+      ]);
       newDrill.children.add(title);
       parentNode.children.add(newDrill);
 
@@ -595,6 +759,191 @@ class CrewViewerController extends ChangeNotifier {
   void updateHeaderTitle(CrewHeader item, String newTitle) {
     item.title = newTitle;
     updateXmlNodeText(item.titleNode, newTitle);
+  }
+
+  void updateReferenceText(CrewStep step, String newText) {
+    step.referenceText = newText;
+    final paraNode = step.dmRefNode?.parentElement;
+    if (paraNode != null) {
+      final dmRef = step.dmRefNode!;
+      paraNode.children.clear();
+      paraNode.children.add(XmlText(newText));
+      paraNode.children.add(dmRef);
+      hasChanges = true;
+      notifyListeners();
+    }
+  }
+
+  Future<void> addReference(BuildContext context) async {
+    final appCtrl = context.read<AppController>();
+    if (appCtrl.workDir == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Проект не открыт.'),
+          backgroundColor: QRHColors.danger,
+        ),
+      );
+      return;
+    }
+
+    // Покажем лоадер, пока собираем инфу о файлах
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final entities = await appCtrl.workDir!.list().toList();
+    final xmlFiles = entities
+        .whereType<File>()
+        .where((f) => f.path.toLowerCase().endsWith('.xml'))
+        .toList();
+
+    List<Map<String, dynamic>> fileData = [];
+    for (var file in xmlFiles) {
+      final fileName = file.uri.pathSegments.last;
+      if (!fileName.toUpperCase().startsWith('DMC-')) continue;
+
+      String infoName = 'Без названия';
+      try {
+        final content = await file.readAsString();
+        final match = RegExp(
+          r'<infoName[^>]*>(.*?)</infoName>',
+          dotAll: true,
+        ).firstMatch(content);
+        if (match != null && match.group(1) != null) {
+          infoName = match.group(1)!.trim();
+        } else {
+          final doc = XmlDocument.parse(content);
+          final infoNameNode = doc.findAllElements('infoName').firstOrNull;
+          if (infoNameNode != null) {
+            infoName = infoNameNode.innerText.trim();
+          }
+        }
+      } catch (_) {}
+
+      fileData.add({'file': file, 'fileName': fileName, 'infoName': infoName});
+    }
+
+    if (context.mounted) {
+      Navigator.of(context, rootNavigator: true).pop(); // Закрываем лоадер
+    } else {
+      return;
+    }
+
+    File? selectedFile;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: QRHColors.secondaryBg,
+        title: const Text(
+          'Выберите файл для ссылки',
+          style: TextStyle(color: QRHColors.textPrimary),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: ListView.builder(
+            itemCount: fileData.length,
+            itemBuilder: (context, index) {
+              final data = fileData[index];
+              return ListTile(
+                title: Text(
+                  data['infoName'],
+                  style: const TextStyle(
+                    color: QRHColors.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                subtitle: Text(
+                  data['fileName'],
+                  style: const TextStyle(
+                    color: QRHColors.textTertiary,
+                    fontSize: 12,
+                  ),
+                ),
+                onTap: () {
+                  selectedFile = data['file'];
+                  Navigator.of(ctx).pop();
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text(
+              'Отмена',
+              style: TextStyle(color: QRHColors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedFile == null) return;
+
+    try {
+      final content = await selectedFile!.readAsString();
+      final dmDoc = XmlDocument.parse(content);
+      final dmIdent = dmDoc.findAllElements('dmIdent').firstOrNull;
+      final dmTitle = dmDoc.findAllElements('dmTitle').firstOrNull;
+
+      if (dmIdent != null) {
+        final dmCode = dmIdent.findElements('dmCode').firstOrNull;
+
+        final dmRef = XmlElement(XmlName('dmRef'), [], [
+          XmlElement(XmlName('dmRefIdent'), [], [
+            if (dmCode != null) dmCode.copy(),
+            if (dmIdent.findElements('issueInfo').isNotEmpty)
+              dmIdent.findElements('issueInfo').first.copy(),
+            if (dmIdent.findElements('language').isNotEmpty)
+              dmIdent.findElements('language').first.copy(),
+          ]),
+          XmlElement(XmlName('dmRefAddressItems'), [], [
+            if (dmTitle != null) dmTitle.copy(),
+          ]),
+        ]);
+
+        final drills = document.findAllElements('crewDrill');
+        XmlElement? parentNode;
+        if (drills.isNotEmpty) {
+          parentNode = drills.last.parentElement;
+        } else {
+          parentNode =
+              document.findAllElements('crewRefCard').firstOrNull ??
+              document.findAllElements('crew').firstOrNull ??
+              document.rootElement;
+        }
+
+        if (parentNode != null) {
+          final newDrill = XmlElement(XmlName('crewDrill'));
+          final newStep = XmlElement(XmlName('crewDrillStep'));
+          final para = XmlElement(XmlName('para'), [], [
+            XmlText('Для получения дополнительной информации см. '),
+            dmRef,
+          ]);
+
+          newStep.children.add(para);
+          newDrill.children.add(newStep);
+          parentNode.children.add(newDrill);
+
+          hasChanges = true;
+          parseCrewData();
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка чтения файла: $e'),
+            backgroundColor: QRHColors.danger,
+          ),
+        );
+      }
+    }
   }
 
   void updateAttentionText(CrewAttention item, String newText) {
@@ -610,6 +959,11 @@ class CrewViewerController extends ChangeNotifier {
   void updateStepResponse(CrewStep step, String newText) {
     step.response = newText;
     updateXmlNodeText(step.responseNode, newText);
+  }
+
+  void updateSimpleText(CrewStep step, String newText) {
+    step.simpleText = newText;
+    updateXmlNodeText(step.parentStepNode, newText);
   }
 
   void update() {

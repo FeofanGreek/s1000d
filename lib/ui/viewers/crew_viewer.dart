@@ -7,6 +7,7 @@ import '../../../controllers/crew_viewer_controller.dart';
 import 'models/crew_models.dart';
 import 'widgets/crew_step_row.dart';
 import 'widgets/crew_attention_row.dart';
+import 'widgets/crew_reference_row.dart';
 import '../../../utils/validator_helper.dart';
 
 class CrewViewer extends StatelessWidget {
@@ -172,7 +173,7 @@ class _CrewViewerContent extends StatelessWidget {
           ],
         ),
         body: ListView.separated(
-          padding: const EdgeInsets.symmetric(vertical: 16.0),
+          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
           itemCount: controller.items.length,
           separatorBuilder: (context, index) {
             if (controller.items[index] is CrewHeader ||
@@ -219,6 +220,9 @@ class _CrewViewerContent extends StatelessWidget {
             } else if (item is CrewAttention) {
               return CrewAttentionRow(item: item);
             } else if (item is CrewStep) {
+              if (item.dmRefNode != null) {
+                return CrewReferenceRow(step: item);
+              }
               return CrewStepRow(step: item);
             }
             return const SizedBox.shrink();
@@ -250,6 +254,14 @@ class _CrewViewerContent extends StatelessWidget {
                     backgroundColor: QRHColors.info,
                     mini: true,
                     child: const Icon(Icons.info_outline, color: QRHColors.primaryBg),
+                  ),
+                  const SizedBox(height: 8),
+                  FloatingActionButton(
+                    heroTag: 'add_reference',
+                    onPressed: () => controller.addReference(context),
+                    backgroundColor: QRHColors.warning, // Or some other color
+                    mini: true,
+                    child: const Icon(Icons.link, color: QRHColors.primaryBg),
                   ),
                   const SizedBox(height: 8),
                   FloatingActionButton(

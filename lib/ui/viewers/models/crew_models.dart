@@ -20,6 +20,8 @@ class CrewStep extends CrewItem {
   String challenge;
   String response;
   String? simpleText;
+  String? referenceText;
+  XmlElement? dmRefNode;
   List<String> crewMembers;
   int stateIndex;
 
@@ -32,6 +34,8 @@ class CrewStep extends CrewItem {
     required this.challenge,
     required this.response,
     this.simpleText,
+    this.referenceText,
+    this.dmRefNode,
     required this.crewMembers,
     required this.stateIndex,
     this.challengeNode,
