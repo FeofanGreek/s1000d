@@ -52,8 +52,8 @@ class CrewViewerController extends ChangeNotifier {
         if (child is XmlElement) {
           if (child.name.local == 'warning' || child.name.local == 'caution' || child.name.local == 'note') {
             final type = child.name.local;
-            final paraNode = child.findAllElements(type == 'note' ? 'notePara' : 'warningAndCautionPara').firstOrNull;
-            final text = cleanText(paraNode?.innerText ?? child.innerText);
+            final text = extractNodeText(child, type == 'note' ? 'notePara' : 'warningAndCautionPara');
+            
             items.add(CrewAttention(type: type, text: text, node: child));
           }
         }
@@ -72,8 +72,8 @@ class CrewViewerController extends ChangeNotifier {
         if (child is XmlElement) {
           if (child.name.local == 'warning' || child.name.local == 'caution' || child.name.local == 'note') {
             final type = child.name.local;
-            final paraNode = child.findAllElements(type == 'note' ? 'notePara' : 'warningAndCautionPara').firstOrNull;
-            final text = cleanText(paraNode?.innerText ?? child.innerText);
+            final text = extractNodeText(child, type == 'note' ? 'notePara' : 'warningAndCautionPara');
+            
             items.add(CrewAttention(type: type, text: text, node: child));
           }
         }
@@ -92,17 +92,26 @@ class CrewViewerController extends ChangeNotifier {
           for (var caseNode in caseElements) {
             final caseCondNode = caseNode.findElements('caseCond').firstOrNull;
             final innerStepNode = caseNode.findElements('crewDrillStep').firstOrNull;
-            final innerParaNode = innerStepNode?.findElements('para').firstOrNull;
+            final stepText = innerStepNode != null ? extractNodeText(innerStepNode, 'para') : '';
 
             if (caseCondNode != null && innerStepNode != null) {
               final caseItem = CrewCaseItem(
-                conditionText: cleanText(caseCondNode.innerText),
-                stepText: cleanText(innerParaNode?.innerText ?? innerStepNode.innerText),
+                conditionText: extractNodeText(caseNode, 'caseCond'), // fallbacks to caseCond innerText
+                stepText: stepText,
                 caseNode: caseNode,
                 caseCondNode: caseCondNode,
                 innerStepNode: innerStepNode,
-                innerParaNode: innerParaNode,
+                innerParaNode: innerStepNode.findElements('para').firstOrNull,
               );
+
+              final caseMembers = <String>[];
+              final caseGroupNode = innerStepNode.findAllElements('crewMemberGroup').firstOrNull;
+              if (caseGroupNode != null) {
+                for (var member in caseGroupNode.findAllElements('crewMember')) {
+                  final t = member.getAttribute('crewMemberType');
+                  if (t != null) caseMembers.add(t);
+                }
+              }
 
               // Create a CrewStep representation for the case's action (stepText)
               // This allows CrewStepRow to be used for rendering the case step
@@ -110,9 +119,10 @@ class CrewViewerController extends ChangeNotifier {
                 challenge: '',
                 response: '',
                 simpleText: caseItem.stepText,
-                crewMembers: [],
+                crewMembers: caseMembers,
                 stateIndex: checkboxStates.length,
                 parentStepNode: innerStepNode,
+                groupNode: caseGroupNode,
                 parentCondition: null, // Will be set after CrewCondition is created
                 parentCaseItem: caseItem,
               );
@@ -127,10 +137,10 @@ class CrewViewerController extends ChangeNotifier {
 
           final condition = CrewCondition(
             title: cleanText(titleNode?.innerText ?? ''),
-            text: cleanText(paraNode?.innerText ?? ''),
+            text: extractNodeText(step, 'para'),
             stepNode: step,
             titleNode: titleNode,
-            paraNode: paraNode,
+            paraNode: step.findElements('para').firstOrNull,
             cases: cases,
           );
 
@@ -145,14 +155,13 @@ class CrewViewerController extends ChangeNotifier {
 
         final titleNode = step.findElements('title').firstOrNull;
         if (titleNode != null) {
-          final paraNode = step.findElements('para').firstOrNull;
           items.add(
             CrewDescription(
               title: cleanText(titleNode.innerText),
-              text: cleanText(paraNode?.innerText ?? ''),
+              text: extractNodeText(step, 'para'),
               stepNode: step,
               titleNode: titleNode,
-              paraNode: paraNode,
+              paraNode: step.findElements('para').firstOrNull,
             ),
           );
           continue; // Пропускаем остальную логику парсинга шагов
@@ -163,8 +172,8 @@ class CrewViewerController extends ChangeNotifier {
         if (cr != null) {
           final challengeNode = cr.findAllElements('challenge').firstOrNull;
           final responseNode = cr.findAllElements('response').firstOrNull;
-          final challenge = cleanText(challengeNode?.innerText ?? '');
-          final response = cleanText(responseNode?.innerText ?? '');
+          final challenge = challengeNode != null ? extractNodeText(challengeNode, 'para') : '';
+          final response = responseNode != null ? extractNodeText(responseNode, 'para') : '';
 
           final members = <String>[];
           final group =
@@ -193,6 +202,15 @@ class CrewViewerController extends ChangeNotifier {
             checkboxStates.length < oldCheckboxStates.length ? oldCheckboxStates[checkboxStates.length] : false,
           );
         } else {
+          final members = <String>[];
+          final groupNode = step.findAllElements('crewMemberGroup').firstOrNull;
+          if (groupNode != null) {
+            for (var member in groupNode.findAllElements('crewMember')) {
+              final t = member.getAttribute('crewMemberType');
+              if (t != null) members.add(t);
+            }
+          }
+
           final paraWithDmRef = step.findElements('para').where((p) => p.findElements('dmRef').isNotEmpty).firstOrNull;
           if (paraWithDmRef != null) {
             final dmRefNode = paraWithDmRef.findElements('dmRef').first;
@@ -213,7 +231,8 @@ class CrewViewerController extends ChangeNotifier {
                 response: '',
                 referenceText: refText,
                 dmRefNode: dmRefNode,
-                crewMembers: [],
+                crewMembers: members,
+                groupNode: groupNode,
                 stateIndex: checkboxStates.length,
                 parentStepNode: step,
               ),
@@ -222,14 +241,15 @@ class CrewViewerController extends ChangeNotifier {
               checkboxStates.length < oldCheckboxStates.length ? oldCheckboxStates[checkboxStates.length] : false,
             );
           } else {
-            final simpleText = cleanText(step.innerText);
+            final simpleText = extractNodeText(step, 'para');
             if (simpleText.isNotEmpty) {
               items.add(
                 CrewStep(
                   challenge: '',
                   response: '',
                   simpleText: simpleText,
-                  crewMembers: [],
+                  crewMembers: members,
+                  groupNode: groupNode,
                   stateIndex: checkboxStates.length,
                   parentStepNode: step,
                 ),
@@ -246,7 +266,16 @@ class CrewViewerController extends ChangeNotifier {
   }
 
   String cleanText(String text) {
-    return text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    return text.trim();
+  }
+
+  String extractNodeText(XmlElement parent, String childName) {
+    final children = parent.children.whereType<XmlElement>().where((e) => e.name.local == childName).toList();
+    if (children.isEmpty) {
+      // Fallback
+      return cleanText(parent.innerText);
+    }
+    return children.map((e) => cleanText(e.innerText)).join('\n');
   }
 
   Future<void> saveChanges(BuildContext context) async {
@@ -497,19 +526,55 @@ class CrewViewerController extends ChangeNotifier {
 
   void updateXmlNodeText(XmlElement? node, String newText) {
     if (node == null) return;
-    final para = node.findAllElements('para').firstOrNull;
-    if (para != null) {
-      para.children.clear();
-      para.children.add(XmlText(newText));
-    } else {
-      if (node.name.local == 'title' || node.name.local == 'name') {
-        node.children.clear();
-        node.children.add(XmlText(newText));
+    
+    final lines = newText.split('\n');
+
+    // Для attention (warning, caution, note) обновляем текст напрямую в соответствующих параграфах
+    if (node.name.local == 'warning' || node.name.local == 'caution' || node.name.local == 'note') {
+      final paraName = node.name.local == 'note' ? 'notePara' : 'warningAndCautionPara';
+      
+      final existingParas = node.children.whereType<XmlElement>().where((e) => e.name.local == paraName).toList();
+      for (var p in existingParas) {
+        node.children.remove(p);
+      }
+      
+      for (var line in lines) {
+        if (line.isEmpty) {
+          node.children.add(XmlElement(XmlName(paraName)));
+        } else {
+          node.children.add(XmlElement(XmlName(paraName), [], [XmlText(line)]));
+        }
+      }
+      
+      hasChanges = true;
+      notifyListeners();
+      return;
+    }
+
+    if (node.name.local == 'title' || node.name.local == 'name') {
+      node.children.clear();
+      node.children.add(XmlText(newText));
+      hasChanges = true;
+      notifyListeners();
+      return;
+    }
+
+    final existingParas = node.children.whereType<XmlElement>().where((e) => e.name.local == 'para').toList();
+    for (var p in existingParas) {
+      node.children.remove(p);
+    }
+    
+    // Осторожно удаляем только старые текстовые узлы, чтобы не затереть другие элементы, если они есть
+    node.children.removeWhere((e) => e is XmlText && e.value.trim().isNotEmpty);
+    
+    for (var line in lines) {
+      if (line.isEmpty) {
+        node.children.add(XmlElement(XmlName('para')));
       } else {
-        node.children.clear();
-        node.children.add(XmlElement(XmlName('para'), [], [XmlText(newText)]));
+        node.children.add(XmlElement(XmlName('para'), [], [XmlText(line)]));
       }
     }
+    
     hasChanges = true;
     notifyListeners();
   }
@@ -598,6 +663,9 @@ class CrewViewerController extends ChangeNotifier {
           } else {
             cr.children.add(newGroup);
           }
+          step.groupNode = newGroup;
+        } else {
+          step.parentStepNode.children.insert(0, newGroup);
           step.groupNode = newGroup;
         }
       }
@@ -846,6 +914,57 @@ class CrewViewerController extends ChangeNotifier {
   void updateDescriptionTitle(CrewDescription item, String newTitle) {
     item.title = newTitle;
     updateXmlNodeText(item.titleNode, newTitle);
+  }
+
+  void reorderItem(int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    if (oldIndex == newIndex) return;
+
+    final itemToMove = items[oldIndex];
+    final targetItem = newIndex < items.length ? items[newIndex] : null;
+
+    items.removeAt(oldIndex);
+    items.insert(newIndex, itemToMove);
+
+    XmlNode? nodeToMove;
+    if (itemToMove is CrewStep) nodeToMove = itemToMove.parentStepNode;
+    else if (itemToMove is CrewDescription) nodeToMove = itemToMove.stepNode;
+    else if (itemToMove is CrewCondition) nodeToMove = itemToMove.stepNode;
+    else if (itemToMove is CrewAttention) nodeToMove = itemToMove.node;
+    else if (itemToMove is CrewHeader) nodeToMove = itemToMove.titleNode;
+
+    if (nodeToMove != null && nodeToMove.parent != null) {
+      nodeToMove.parent!.children.remove(nodeToMove);
+
+      XmlNode? targetNode;
+      if (targetItem != null) {
+        if (targetItem is CrewStep) targetNode = targetItem.parentStepNode;
+        else if (targetItem is CrewDescription) targetNode = targetItem.stepNode;
+        else if (targetItem is CrewCondition) targetNode = targetItem.stepNode;
+        else if (targetItem is CrewAttention) targetNode = targetItem.node;
+        else if (targetItem is CrewHeader) targetNode = targetItem.titleNode;
+      }
+
+      if (targetNode != null && targetNode.parent != null) {
+        final parent = targetNode.parent!;
+        final index = parent.children.indexOf(targetNode);
+        if (index != -1) {
+          parent.children.insert(index, nodeToMove);
+        } else {
+          parent.children.add(nodeToMove);
+        }
+      } else {
+        final drills = document.findAllElements('crewDrill');
+        if (drills.isNotEmpty) {
+          drills.last.children.add(nodeToMove);
+        }
+      }
+
+      hasChanges = true;
+      notifyListeners();
+    }
   }
 
   void updateDescriptionText(CrewDescription item, String newText) {

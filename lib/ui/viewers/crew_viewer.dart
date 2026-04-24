@@ -10,6 +10,7 @@ import 'widgets/crew_attention_row.dart';
 import 'widgets/crew_reference_row.dart';
 import 'widgets/crew_description_row.dart';
 import 'widgets/crew_condition_row.dart';
+import 'widgets/crew_edit_tools_bar.dart';
 import '../../../utils/validator_helper.dart';
 
 class CrewViewer extends StatelessWidget {
@@ -101,6 +102,65 @@ class _CrewViewerContent extends StatelessWidget {
         ),
       );
     }
+  }
+
+  Widget _buildItem(BuildContext context, CrewItem item, CrewViewerController controller, bool isEditMode) {
+    if (item is CrewHeader) {
+      return Padding(
+        padding: const EdgeInsets.only(
+          top: 16.0,
+          bottom: 8.0,
+          left: 16.0,
+          right: 16.0,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: isEditMode
+                  ? TextFormField(
+                      initialValue: item.title,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: QRHColors.textPrimary,
+                      ),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (val) =>
+                          controller.updateHeaderTitle(item, val),
+                    )
+                  : Text(
+                      item.title,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: QRHColors.info,
+                      ),
+                    ),
+            ),
+            if (isEditMode)
+              IconButton(
+                icon: const Icon(Icons.delete, color: QRHColors.danger),
+                onPressed: () => controller.deleteItem(item),
+              ),
+          ],
+        ),
+      );
+    } else if (item is CrewAttention) {
+      return CrewAttentionRow(item: item);
+    } else if (item is CrewDescription) {
+      return CrewDescriptionRow(item: item);
+    } else if (item is CrewCondition) {
+      return CrewConditionRow(item: item);
+    } else if (item is CrewStep) {
+      if (item.dmRefNode != null) {
+        return CrewReferenceRow(step: item);
+      }
+      return CrewStepRow(step: item);
+    }
+    return const SizedBox.shrink();
   }
 
   @override
@@ -219,86 +279,72 @@ class _CrewViewerContent extends StatelessWidget {
             const SizedBox(width: 8),
           ],
         ),
-        body: ListView.separated(
-          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
-          itemCount: controller.items.length,
-          separatorBuilder: (context, index) {
-            if (controller.items[index] is CrewHeader ||
-                (index + 1 < controller.items.length &&
-                    controller.items[index + 1] is CrewHeader)) {
-              return const SizedBox(height: 8);
-            }
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4.0),
-              child: Divider(
-                color: QRHColors.dividerColor.withValues(alpha: 0.5),
-                height: 1,
-              ),
-            );
-          },
-          itemBuilder: (context, index) {
-            final item = controller.items[index];
-            if (item is CrewHeader) {
-              return Padding(
-                padding: const EdgeInsets.only(
-                  top: 16.0,
-                  bottom: 8.0,
-                  left: 16.0,
-                  right: 16.0,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: isEditMode
-                          ? TextFormField(
-                              initialValue: item.title,
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: QRHColors.textPrimary,
-                              ),
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                border: OutlineInputBorder(),
-                              ),
-                              onChanged: (val) =>
-                                  controller.updateHeaderTitle(item, val),
-                            )
-                          : Text(
-                              item.title,
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: QRHColors.info,
-                              ),
-                            ),
+        body: isEditMode
+            ? ReorderableListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
+                itemCount: controller.items.length,
+                onReorder: controller.reorderItem,
+                buildDefaultDragHandles: false,
+                proxyDecorator: (child, index, animation) {
+                  return ChangeNotifierProvider<CrewViewerController>.value(
+                    value: controller,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: child,
                     ),
-                    if (isEditMode)
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: QRHColors.danger),
-                        onPressed: () => controller.deleteItem(item),
-                      ),
-                  ],
-                ),
-              );
-            } else if (item is CrewAttention) {
-              return CrewAttentionRow(item: item);
-            } else if (item is CrewDescription) {
-              return CrewDescriptionRow(item: item);
-            } else if (item is CrewCondition) {
-              return CrewConditionRow(item: item);
-            } else if (item is CrewStep) {
-              if (item.dmRefNode != null) {
-                return CrewReferenceRow(step: item);
-              }
-              return CrewStepRow(step: item);
-            }
-            return const SizedBox.shrink();
-          },
-        ),
-        floatingActionButton: isEditMode ? const _CrewEditToolsFab() : null,
+                  );
+                },
+                itemBuilder: (context, index) {
+                  final item = controller.items[index];
+                  return Container(
+                    key: ObjectKey(item),
+                    margin: const EdgeInsets.symmetric(vertical: 4.0),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: QRHColors.borderColor),
+                      borderRadius: BorderRadius.circular(8),
+                      color: QRHColors.primaryBg,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ReorderableDragStartListener(
+                          index: index,
+                          child: const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Icon(Icons.drag_indicator, color: QRHColors.textSecondary),
+                          ),
+                        ),
+                        Expanded(child: _buildItem(context, item, controller, isEditMode)),
+                      ],
+                    ),
+                  );
+                },
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
+                itemCount: controller.items.length,
+                separatorBuilder: (context, index) {
+                  if (controller.items[index] is CrewHeader ||
+                      (index + 1 < controller.items.length &&
+                          controller.items[index + 1] is CrewHeader)) {
+                    return const SizedBox(height: 8);
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    child: Divider(
+                      color: QRHColors.dividerColor.withValues(alpha: 0.5),
+                      height: 1,
+                    ),
+                  );
+                },
+                itemBuilder: (context, index) {
+                  final item = controller.items[index];
+                  return _buildItem(context, item, controller, isEditMode);
+                },
+              ),
+        floatingActionButton: null,
         bottomNavigationBar: isEditMode
-            ? const SizedBox.shrink()
+            ? const CrewEditToolsBar()
             : SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
@@ -337,137 +383,3 @@ class _CrewViewerContent extends StatelessWidget {
   }
 }
 
-class _CrewEditToolsFab extends StatefulWidget {
-  const _CrewEditToolsFab();
-
-  @override
-  State<_CrewEditToolsFab> createState() => _CrewEditToolsFabState();
-}
-
-class _CrewEditToolsFabState extends State<_CrewEditToolsFab> {
-  bool _isOpen = false;
-
-  void _toggle() {
-    setState(() {
-      _isOpen = !_isOpen;
-    });
-  }
-
-  Widget _buildFabItem({
-    required String tag,
-    required VoidCallback onPressed,
-    required Color color,
-    required IconData icon,
-    required String label,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: QRHColors.primaryBg,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: QRHColors.borderColor),
-            ),
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: QRHColors.textPrimary,
-                fontSize: 12,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          FloatingActionButton(
-            heroTag: tag,
-            onPressed: () {
-              onPressed();
-              _toggle(); // Закрываем меню после клика
-            },
-            backgroundColor: color,
-            mini: true,
-            child: Icon(icon, color: QRHColors.primaryBg),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = context.watch<CrewViewerController>();
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        if (_isOpen) ...[
-          _buildFabItem(
-            tag: 'add_warning',
-            onPressed: () => controller.addAttention('warning'),
-            color: QRHColors.danger,
-            icon: Icons.warning,
-            label: 'Внимание',
-          ),
-          _buildFabItem(
-            tag: 'add_caution',
-            onPressed: () => controller.addAttention('caution'),
-            color: QRHColors.warning,
-            icon: Icons.pan_tool,
-            label: 'Осторожно',
-          ),
-          _buildFabItem(
-            tag: 'add_note',
-            onPressed: () => controller.addAttention('note'),
-            color: QRHColors.info,
-            icon: Icons.info_outline,
-            label: 'Примечание',
-          ),
-          _buildFabItem(
-            tag: 'add_reference',
-            onPressed: () => controller.addReference(context),
-            color: QRHColors.warning,
-            icon: Icons.link,
-            label: 'Ссылка',
-          ),
-          _buildFabItem(
-            tag: 'add_description',
-            onPressed: controller.addDescription,
-            color: QRHColors.info,
-            icon: Icons.article,
-            label: 'Описание',
-          ),
-          _buildFabItem(
-            tag: 'add_condition',
-            onPressed: controller.addCondition,
-            color: Colors.purple,
-            icon: Icons.alt_route,
-            label: 'IF ELSE',
-          ),
-          _buildFabItem(
-            tag: 'add_step',
-            onPressed: controller.addStep,
-            color: QRHColors.success,
-            icon: Icons.add,
-            label: 'Шаг',
-          ),
-        ],
-        FloatingActionButton(
-          heroTag: 'toggle_tools',
-          onPressed: _toggle,
-          backgroundColor: _isOpen
-              ? QRHColors.textSecondary
-              : QRHColors.success,
-          child: Icon(
-            _isOpen ? Icons.close : Icons.build,
-            color: QRHColors.primaryBg,
-          ),
-        ),
-      ],
-    );
-  }
-}

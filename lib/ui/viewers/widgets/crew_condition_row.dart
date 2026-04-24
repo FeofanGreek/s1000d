@@ -166,6 +166,7 @@ class _CrewConditionRowState extends State<CrewConditionRow> {
                                       color: QRHColors.textPrimary,
                                       //fontWeight: FontWeight.bold,
                                     ),
+                                    maxLines: null,
                                     decoration: const InputDecoration(
                                       isDense: true,
                                       //contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
