@@ -71,6 +71,12 @@ class CrewEditToolsBar extends StatelessWidget {
                 label: 'Ссылка',
               ),
               _buildToolButton(
+                onPressed: () => controller.addFigure(context),
+                color: Colors.blueAccent,
+                icon: Icons.image,
+                label: 'Изображение',
+              ),
+              _buildToolButton(
                 onPressed: () => controller.addAttention('warning'),
                 color: QRHColors.danger,
                 icon: Icons.warning,

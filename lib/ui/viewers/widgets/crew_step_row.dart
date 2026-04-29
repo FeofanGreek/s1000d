@@ -49,7 +49,7 @@ class _CrewStepRowState extends State<CrewStepRow> {
   Widget build(BuildContext context) {
     final controller = context.watch<CrewViewerController>();
     final isEditMode = controller.isEditMode;
-    final isChecked = widget.step.stateIndex < controller.checkboxStates.length
+    final isChecked = widget.step.stateIndex >= 0 && widget.step.stateIndex < controller.checkboxStates.length
         ? controller.checkboxStates[widget.step.stateIndex]
         : false;
     final textColor = isChecked ? QRHColors.textTertiary : QRHColors.textPrimary;
@@ -67,6 +67,85 @@ class _CrewStepRowState extends State<CrewStepRow> {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // --- Chips (Типы экипажа) ---
+              if (widget.step.crewMembers.isNotEmpty || isEditMode) ...[
+                Wrap(
+                  spacing: 4.0,
+                  children: [
+                    ...widget.step.crewMembers.map(
+                      (cm) => isEditMode
+                          ? Chip(
+                              avatar: Image.asset(
+                                'assets/shilds/${cm.toLowerCase()}.png',
+                                //package: 'gazprom_mi_render',
+                                width: 20,
+                                height: 20,
+                                errorBuilder: (c, e, s) => const Icon(Icons.person, size: 14),
+                              ),
+                              label: Text(
+                                cm.toUpperCase(),
+                                style: const TextStyle(fontSize: 10, color: QRHColors.textPrimary),
+                              ),
+                              onDeleted: () => controller.removeCrewMember(widget.step, cm),
+                              deleteIcon: const Icon(Icons.close, size: 14),
+                              backgroundColor: QRHColors.accentBg,
+                              padding: EdgeInsets.zero,
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            )
+                          : Container(
+                              margin: const EdgeInsets.only(right: 4.0),
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isChecked ? QRHColors.accentBg : QRHColors.info.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: isChecked ? QRHColors.dividerColor : QRHColors.info.withValues(alpha: 0.5),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Image.asset(
+                                    'assets/shilds/${cm.toLowerCase()}.png',
+                                    //package: 'gazprom_mi_render',
+                                    width: 14,
+                                    height: 14,
+                                    errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                                  ),
+                                  // const SizedBox(width: 4),
+                                  // Text(
+                                  //   cm.toUpperCase(),
+                                  //   style: TextStyle(
+                                  //     fontSize: 10,
+                                  //     color: isChecked ? QRHColors.textTertiary : QRHColors.info,
+                                  //     fontWeight: FontWeight.bold,
+                                  //   ),
+                                  // ),
+                                ],
+                              ),
+                            ),
+                    ),
+                    if (isEditMode)
+                      InkWell(
+                        onTap: () => controller.showAddCrewMemberDialog(context, widget.step),
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: QRHColors.info),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            '+',
+                            style: TextStyle(color: QRHColors.info, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 8),
+              ],
+
               // --- Challenge (Вызов) ---
               if (isChallengeResponseStep && (widget.step.challenge.isNotEmpty || isEditMode))
                 ConstrainedBox(
@@ -76,7 +155,7 @@ class _CrewStepRowState extends State<CrewStepRow> {
                           controller: _challengeCtrl,
                           style: const TextStyle(
                             fontSize: 16,
-                            color: QRHColors.info,
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
                             height: 1.2,
                           ),
@@ -155,7 +234,7 @@ class _CrewStepRowState extends State<CrewStepRow> {
                   child: isEditMode
                       ? TextFormField(
                           controller: _responseCtrl,
-                          style: const TextStyle(fontSize: 16, color: QRHColors.info, height: 1.2),
+                          style: const TextStyle(fontSize: 16, color: Colors.white, height: 1.2),
                           maxLines: null,
                           textAlign: TextAlign.right,
                           textAlignVertical: TextAlignVertical.center,
@@ -187,66 +266,8 @@ class _CrewStepRowState extends State<CrewStepRow> {
                 ),
 
               const SizedBox(width: 8),
-              // --- Chips (Типы экипажа) ---
-              if (widget.step.crewMembers.isNotEmpty || isEditMode) ...[
-                const SizedBox(width: 8),
-                Wrap(
-                  spacing: 4.0,
-                  children: [
-                    ...widget.step.crewMembers.map(
-                      (cm) => isEditMode
-                          ? Chip(
-                              label: Text(
-                                cm.toUpperCase(),
-                                style: const TextStyle(fontSize: 10, color: QRHColors.textPrimary),
-                              ),
-                              onDeleted: () => controller.removeCrewMember(widget.step, cm),
-                              deleteIcon: const Icon(Icons.close, size: 14),
-                              backgroundColor: QRHColors.accentBg,
-                              padding: EdgeInsets.zero,
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            )
-                          : Container(
-                              margin: const EdgeInsets.only(right: 4.0),
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: isChecked ? QRHColors.accentBg : QRHColors.info.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                  color: isChecked ? QRHColors.dividerColor : QRHColors.info.withValues(alpha: 0.5),
-                                ),
-                              ),
-                              child: Text(
-                                cm.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: isChecked ? QRHColors.textTertiary : QRHColors.info,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                    ),
-                    if (isEditMode)
-                      InkWell(
-                        onTap: () => controller.showAddCrewMemberDialog(context, widget.step),
-                        child: Container(
-                          margin: const EdgeInsets.only(top: 4),
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: QRHColors.info),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            '+',
-                            style: TextStyle(color: QRHColors.info, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
               // --- Checkbox (Отметка) ---
-              if (!isEditMode)
+              if (!isEditMode && widget.step.stateIndex >= 0)
                 Checkbox(
                   value: isChecked,
                   onChanged: (val) => controller.setCheckbox(widget.step.stateIndex, val ?? false),
@@ -254,7 +275,7 @@ class _CrewStepRowState extends State<CrewStepRow> {
                   checkColor: QRHColors.primaryBg,
                   side: const BorderSide(color: QRHColors.textTertiary, width: 2),
                 )
-              else
+              else if (isEditMode && widget.step.stateIndex >= 0)
                 IconButton(
                   icon: const Icon(Icons.delete, color: QRHColors.danger),
                   onPressed: () => controller.deleteItem(widget.step),

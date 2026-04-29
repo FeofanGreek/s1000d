@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../styles.dart';
 import '../models/crew_models.dart';
@@ -16,12 +17,36 @@ class CrewDescriptionRow extends StatefulWidget {
 class _CrewDescriptionRowState extends State<CrewDescriptionRow> {
   late TextEditingController _titleCtrl;
   late TextEditingController _textCtrl;
+  late FocusNode _textFocusNode;
 
   @override
   void initState() {
     super.initState();
     _titleCtrl = TextEditingController(text: widget.item.title);
     _textCtrl = TextEditingController(text: widget.item.text);
+    _textFocusNode = FocusNode(
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.tab) {
+          final text = _textCtrl.text;
+          final selection = _textCtrl.selection;
+
+          if (selection.isValid) {
+            // Вставляем символ табуляции на место выделения (или курсора)
+            final newText = text.replaceRange(selection.start, selection.end, '\t');
+            _textCtrl.value = TextEditingValue(
+              text: newText,
+              selection: TextSelection.collapsed(offset: selection.start + 1),
+            );
+            // Программное изменение текста не триггерит onChanged, поэтому вызываем сохранение явно
+            if (mounted) {
+              context.read<CrewViewerController>().updateDescriptionText(widget.item, newText);
+            }
+          }
+          return KeyEventResult.handled; // Говорим Flutter, что мы обработали Tab
+        }
+        return KeyEventResult.ignored;
+      },
+    );
   }
 
   @override
@@ -41,6 +66,7 @@ class _CrewDescriptionRowState extends State<CrewDescriptionRow> {
   void dispose() {
     _titleCtrl.dispose();
     _textCtrl.dispose();
+    _textFocusNode.dispose();
     super.dispose();
   }
 
@@ -98,6 +124,7 @@ class _CrewDescriptionRowState extends State<CrewDescriptionRow> {
                   if (isEditMode)
                     TextFormField(
                       controller: _textCtrl,
+                      focusNode: _textFocusNode,
                       style: const TextStyle(
                         fontSize: 16,
                         color: QRHColors.textPrimary,

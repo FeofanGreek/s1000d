@@ -35,6 +35,7 @@ flutter:
   assets:
     - assets/
     - assets/schemas/
+    - assets/shilds/
 
 msix_config:
   display_name: Название Моего Приложения

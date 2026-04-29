@@ -10,6 +10,7 @@ import 'widgets/crew_attention_row.dart';
 import 'widgets/crew_reference_row.dart';
 import 'widgets/crew_description_row.dart';
 import 'widgets/crew_condition_row.dart';
+import 'widgets/crew_figure_row.dart';
 import 'widgets/crew_edit_tools_bar.dart';
 import '../../../utils/validator_helper.dart';
 
@@ -41,8 +42,22 @@ class CrewViewer extends StatelessWidget {
   }
 }
 
-class _CrewViewerContent extends StatelessWidget {
+class _CrewViewerContent extends StatefulWidget {
   const _CrewViewerContent();
+
+  @override
+  State<_CrewViewerContent> createState() => _CrewViewerContentState();
+}
+
+class _CrewViewerContentState extends State<_CrewViewerContent> {
+  final ScrollController _scrollController = ScrollController();
+  int _previousItemCount = 0;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   Future<void> _validateDocument(
     BuildContext context,
@@ -154,6 +169,8 @@ class _CrewViewerContent extends StatelessWidget {
       return CrewDescriptionRow(item: item);
     } else if (item is CrewCondition) {
       return CrewConditionRow(item: item);
+    } else if (item is CrewFigure) {
+      return CrewFigureRow(item: item);
     } else if (item is CrewStep) {
       if (item.dmRefNode != null) {
         return CrewReferenceRow(step: item);
@@ -167,6 +184,19 @@ class _CrewViewerContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<CrewViewerController>();
     final isEditMode = controller.isEditMode;
+
+    if (controller.items.length > _previousItemCount) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
+    _previousItemCount = controller.items.length;
 
     if (controller.items.isEmpty && !isEditMode) {
       return Scaffold(
@@ -281,6 +311,7 @@ class _CrewViewerContent extends StatelessWidget {
         ),
         body: isEditMode
             ? ReorderableListView.builder(
+                scrollController: _scrollController,
                 padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
                 itemCount: controller.items.length,
                 onReorder: controller.reorderItem,
@@ -321,6 +352,7 @@ class _CrewViewerContent extends StatelessWidget {
                 },
               )
             : ListView.separated(
+                controller: _scrollController,
                 padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
                 itemCount: controller.items.length,
                 separatorBuilder: (context, index) {

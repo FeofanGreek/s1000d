@@ -2,6 +2,7 @@ import 'dart:io' show File, Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:xml/xml.dart';
 import 'package:go_router/go_router.dart';
 import '../styles.dart';
@@ -53,7 +54,7 @@ class CrewViewerController extends ChangeNotifier {
           if (child.name.local == 'warning' || child.name.local == 'caution' || child.name.local == 'note') {
             final type = child.name.local;
             final text = extractNodeText(child, type == 'note' ? 'notePara' : 'warningAndCautionPara');
-            
+
             items.add(CrewAttention(type: type, text: text, node: child));
           }
         }
@@ -73,7 +74,7 @@ class CrewViewerController extends ChangeNotifier {
           if (child.name.local == 'warning' || child.name.local == 'caution' || child.name.local == 'note') {
             final type = child.name.local;
             final text = extractNodeText(child, type == 'note' ? 'notePara' : 'warningAndCautionPara');
-            
+
             items.add(CrewAttention(type: type, text: text, node: child));
           }
         }
@@ -120,7 +121,7 @@ class CrewViewerController extends ChangeNotifier {
                 response: '',
                 simpleText: caseItem.stepText,
                 crewMembers: caseMembers,
-                stateIndex: checkboxStates.length,
+                stateIndex: -1, // Не участвует в глобальном стейте чекбоксов
                 parentStepNode: innerStepNode,
                 groupNode: caseGroupNode,
                 parentCondition: null, // Will be set after CrewCondition is created
@@ -128,9 +129,6 @@ class CrewViewerController extends ChangeNotifier {
               );
 
               caseItem.asCrewStep = caseCrewStep;
-              checkboxStates.add(
-                checkboxStates.length < oldCheckboxStates.length ? oldCheckboxStates[checkboxStates.length] : false,
-              );
               cases.add(caseItem);
             }
           }
@@ -165,6 +163,26 @@ class CrewViewerController extends ChangeNotifier {
             ),
           );
           continue; // Пропускаем остальную логику парсинга шагов
+        }
+
+        // Проверка на фигуру (изображение)
+        final figureNode = step.findElements('figure').firstOrNull ?? step.parent?.findElements('figure').firstOrNull;
+        if (figureNode != null) {
+          final graphicNode = figureNode.findElements('graphic').firstOrNull;
+          if (graphicNode != null) {
+            final figTitleNode = figureNode.findElements('title').firstOrNull;
+            items.add(
+              CrewFigure(
+                title: cleanText(figTitleNode?.innerText ?? ''),
+                infoEntityIdent: graphicNode.getAttribute('infoEntityIdent') ?? '',
+                stepNode: step,
+                figureNode: figureNode,
+                graphicNode: graphicNode,
+                titleNode: figTitleNode,
+              ),
+            );
+            continue; // Пропускаем остальную логику
+          }
         }
 
         final cr = step.findAllElements('challengeAndResponse').firstOrNull;
@@ -526,18 +544,18 @@ class CrewViewerController extends ChangeNotifier {
 
   void updateXmlNodeText(XmlElement? node, String newText) {
     if (node == null) return;
-    
+
     final lines = newText.split('\n');
 
     // Для attention (warning, caution, note) обновляем текст напрямую в соответствующих параграфах
     if (node.name.local == 'warning' || node.name.local == 'caution' || node.name.local == 'note') {
       final paraName = node.name.local == 'note' ? 'notePara' : 'warningAndCautionPara';
-      
+
       final existingParas = node.children.whereType<XmlElement>().where((e) => e.name.local == paraName).toList();
       for (var p in existingParas) {
         node.children.remove(p);
       }
-      
+
       for (var line in lines) {
         if (line.isEmpty) {
           node.children.add(XmlElement(XmlName(paraName)));
@@ -545,7 +563,7 @@ class CrewViewerController extends ChangeNotifier {
           node.children.add(XmlElement(XmlName(paraName), [], [XmlText(line)]));
         }
       }
-      
+
       hasChanges = true;
       notifyListeners();
       return;
@@ -563,10 +581,10 @@ class CrewViewerController extends ChangeNotifier {
     for (var p in existingParas) {
       node.children.remove(p);
     }
-    
+
     // Осторожно удаляем только старые текстовые узлы, чтобы не затереть другие элементы, если они есть
     node.children.removeWhere((e) => e is XmlText && e.value.trim().isNotEmpty);
-    
+
     for (var line in lines) {
       if (line.isEmpty) {
         node.children.add(XmlElement(XmlName('para')));
@@ -574,7 +592,7 @@ class CrewViewerController extends ChangeNotifier {
         node.children.add(XmlElement(XmlName('para'), [], [XmlText(line)]));
       }
     }
-    
+
     hasChanges = true;
     notifyListeners();
   }
@@ -650,7 +668,9 @@ class CrewViewerController extends ChangeNotifier {
     );
 
     if (res == true && newCm != null) {
-      step.crewMembers.add(newCm!);
+      if (!step.crewMembers.contains(newCm!)) {
+        step.crewMembers.add(newCm!);
+      }
 
       if (step.groupNode == null) {
         final newGroup = XmlElement(XmlName('crewMemberGroup'));
@@ -670,9 +690,17 @@ class CrewViewerController extends ChangeNotifier {
         }
       }
 
-      step.groupNode?.children.add(
-        XmlElement(XmlName('crewMember'), [XmlAttribute(XmlName('crewMemberType'), newCm!)]),
-      );
+      // Check if this crewMemberType already exists in XML before adding
+      final existingXmlNode = step.groupNode?.children
+          .whereType<XmlElement>()
+          .where((e) => e.name.local == 'crewMember' && e.getAttribute('crewMemberType') == newCm!)
+          .firstOrNull;
+
+      if (existingXmlNode == null) {
+        step.groupNode?.children.add(
+          XmlElement(XmlName('crewMember'), [XmlAttribute(XmlName('crewMemberType'), newCm!)]),
+        );
+      }
 
       hasChanges = true;
       notifyListeners();
@@ -929,22 +957,32 @@ class CrewViewerController extends ChangeNotifier {
     items.insert(newIndex, itemToMove);
 
     XmlNode? nodeToMove;
-    if (itemToMove is CrewStep) nodeToMove = itemToMove.parentStepNode;
-    else if (itemToMove is CrewDescription) nodeToMove = itemToMove.stepNode;
-    else if (itemToMove is CrewCondition) nodeToMove = itemToMove.stepNode;
-    else if (itemToMove is CrewAttention) nodeToMove = itemToMove.node;
-    else if (itemToMove is CrewHeader) nodeToMove = itemToMove.titleNode;
+    if (itemToMove is CrewStep)
+      nodeToMove = itemToMove.parentStepNode;
+    else if (itemToMove is CrewDescription)
+      nodeToMove = itemToMove.stepNode;
+    else if (itemToMove is CrewCondition)
+      nodeToMove = itemToMove.stepNode;
+    else if (itemToMove is CrewAttention)
+      nodeToMove = itemToMove.node;
+    else if (itemToMove is CrewHeader)
+      nodeToMove = itemToMove.titleNode;
 
     if (nodeToMove != null && nodeToMove.parent != null) {
       nodeToMove.parent!.children.remove(nodeToMove);
 
       XmlNode? targetNode;
       if (targetItem != null) {
-        if (targetItem is CrewStep) targetNode = targetItem.parentStepNode;
-        else if (targetItem is CrewDescription) targetNode = targetItem.stepNode;
-        else if (targetItem is CrewCondition) targetNode = targetItem.stepNode;
-        else if (targetItem is CrewAttention) targetNode = targetItem.node;
-        else if (targetItem is CrewHeader) targetNode = targetItem.titleNode;
+        if (targetItem is CrewStep)
+          targetNode = targetItem.parentStepNode;
+        else if (targetItem is CrewDescription)
+          targetNode = targetItem.stepNode;
+        else if (targetItem is CrewCondition)
+          targetNode = targetItem.stepNode;
+        else if (targetItem is CrewAttention)
+          targetNode = targetItem.node;
+        else if (targetItem is CrewHeader)
+          targetNode = targetItem.titleNode;
       }
 
       if (targetNode != null && targetNode.parent != null) {
@@ -970,6 +1008,11 @@ class CrewViewerController extends ChangeNotifier {
   void updateDescriptionText(CrewDescription item, String newText) {
     item.text = newText;
     updateXmlNodeText(item.paraNode, newText);
+  }
+
+  void updateFigureTitle(CrewFigure item, String newTitle) {
+    item.title = newTitle;
+    updateXmlNodeText(item.titleNode, newTitle);
   }
 
   void updateReferenceText(CrewStep step, String newText) {
@@ -1122,6 +1165,73 @@ class CrewViewerController extends ChangeNotifier {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Ошибка чтения файла: $e'), backgroundColor: QRHColors.danger));
+      }
+    }
+  }
+
+  Future<void> addFigure(BuildContext context) async {
+    final appCtrl = context.read<AppController>();
+    if (appCtrl.workDir == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Проект не открыт.'), backgroundColor: QRHColors.danger));
+      return;
+    }
+
+    try {
+      final result = await FilePicker.pickFiles(type: FileType.image, allowMultiple: false);
+
+      if (result != null && result.files.single.path != null) {
+        final sourceFile = File(result.files.single.path!);
+
+        // Генерация ICN имени
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final extension = sourceFile.path.split('.').last.toUpperCase();
+        // Используем префикс модели из настроек проекта
+        final icn = 'ICN-${appCtrl.modelIdentCode}-AAA-DA00000-A-00000-00000-A-$timestamp-01';
+        final newFileName = '$icn.$extension';
+
+        final destinationPath = '${appCtrl.workDir!.path}/$newFileName';
+        await sourceFile.copy(destinationPath);
+
+        // Добавление в XML
+        final drills = document.findAllElements('crewDrill');
+        XmlElement? parentNode;
+        if (drills.isNotEmpty) {
+          parentNode = drills.last.parentElement;
+        } else {
+          parentNode =
+              document.findAllElements('crewRefCard').firstOrNull ??
+              document.findAllElements('crew').firstOrNull ??
+              document.rootElement;
+        }
+
+        if (parentNode != null) {
+          final newDrill = XmlElement(XmlName('crewDrill'));
+          final newStep = XmlElement(XmlName('crewDrillStep'));
+
+          final figureNode = XmlElement(XmlName('figure'), [], [
+            XmlElement(XmlName('title'), [], [XmlText('Новое изображение')]),
+            XmlElement(XmlName('graphic'), [
+              XmlAttribute(XmlName('infoEntityIdent'), icn),
+              XmlAttribute(XmlName('reproductionHeight'), '100mm'),
+              XmlAttribute(XmlName('reproductionWidth'), '150mm'),
+            ]),
+          ]);
+
+          newStep.children.add(figureNode);
+          newDrill.children.add(newStep);
+          parentNode.children.add(newDrill);
+
+          hasChanges = true;
+          parseCrewData();
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка вставки изображения: $e'), backgroundColor: QRHColors.danger));
       }
     }
   }

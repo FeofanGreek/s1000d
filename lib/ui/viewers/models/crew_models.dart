@@ -81,6 +81,24 @@ class CrewCondition extends CrewItem {
   });
 }
 
+class CrewFigure extends CrewItem {
+  String title;
+  String infoEntityIdent;
+  final XmlElement stepNode;
+  final XmlElement figureNode;
+  final XmlElement graphicNode;
+  final XmlElement? titleNode;
+
+  CrewFigure({
+    required this.title,
+    required this.infoEntityIdent,
+    required this.stepNode,
+    required this.figureNode,
+    required this.graphicNode,
+    this.titleNode,
+  });
+}
+
 class CrewCaseItem {
   String conditionText;
   String stepText;

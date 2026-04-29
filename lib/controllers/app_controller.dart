@@ -684,6 +684,22 @@ ${contentXml.toXmlString(pretty: true)}
       for (var code in categoryOrder) {
         if (groupedRefs.containsKey(code)) {
           final refs = groupedRefs[code]!;
+
+          // Сортировка ссылок внутри категории по имени файла (DM Code)
+          refs.sort((a, b) {
+            final aDmCode = a.findElements('dmRefIdent').firstOrNull?.findElements('dmCode').firstOrNull;
+            final bDmCode = b.findElements('dmRefIdent').firstOrNull?.findElements('dmCode').firstOrNull;
+
+            if (aDmCode == null && bDmCode == null) return 0;
+            if (aDmCode == null) return 1;
+            if (bDmCode == null) return -1;
+
+            // Собираем коды в строку для лексикографического сравнения (подобно имени файла)
+            final aStr = '${aDmCode.getAttribute('modelIdentCode')}-${aDmCode.getAttribute('systemDiffCode')}-${aDmCode.getAttribute('systemCode')}-${aDmCode.getAttribute('subSystemCode')}${aDmCode.getAttribute('subSubSystemCode')}-${aDmCode.getAttribute('assyCode')}-${aDmCode.getAttribute('disassyCode')}${aDmCode.getAttribute('disassyCodeVariant')}-${aDmCode.getAttribute('infoCode')}${aDmCode.getAttribute('infoCodeVariant')}-${aDmCode.getAttribute('itemLocationCode')}';
+            final bStr = '${bDmCode.getAttribute('modelIdentCode')}-${bDmCode.getAttribute('systemDiffCode')}-${bDmCode.getAttribute('systemCode')}-${bDmCode.getAttribute('subSystemCode')}${bDmCode.getAttribute('subSubSystemCode')}-${bDmCode.getAttribute('assyCode')}-${bDmCode.getAttribute('disassyCode')}${bDmCode.getAttribute('disassyCodeVariant')}-${bDmCode.getAttribute('infoCode')}${bDmCode.getAttribute('infoCodeVariant')}-${bDmCode.getAttribute('itemLocationCode')}';
+
+            return aStr.compareTo(bStr);
+          });
           
           final pmEntry = XmlElement(XmlName('pmEntry'), [], [
             XmlElement(XmlName('pmEntryTitle'), [], [XmlText(infoCategories[code]!)]),
@@ -696,9 +712,25 @@ ${contentXml.toXmlString(pretty: true)}
 
       if (groupedRefs.isNotEmpty) {
         for (var entry in groupedRefs.entries) {
+          final refs = entry.value;
+
+          refs.sort((a, b) {
+            final aDmCode = a.findElements('dmRefIdent').firstOrNull?.findElements('dmCode').firstOrNull;
+            final bDmCode = b.findElements('dmRefIdent').firstOrNull?.findElements('dmCode').firstOrNull;
+
+            if (aDmCode == null && bDmCode == null) return 0;
+            if (aDmCode == null) return 1;
+            if (bDmCode == null) return -1;
+
+            final aStr = '${aDmCode.getAttribute('modelIdentCode')}-${aDmCode.getAttribute('systemDiffCode')}-${aDmCode.getAttribute('systemCode')}-${aDmCode.getAttribute('subSystemCode')}${aDmCode.getAttribute('subSubSystemCode')}-${aDmCode.getAttribute('assyCode')}-${aDmCode.getAttribute('disassyCode')}${aDmCode.getAttribute('disassyCodeVariant')}-${aDmCode.getAttribute('infoCode')}${aDmCode.getAttribute('infoCodeVariant')}-${aDmCode.getAttribute('itemLocationCode')}';
+            final bStr = '${bDmCode.getAttribute('modelIdentCode')}-${bDmCode.getAttribute('systemDiffCode')}-${bDmCode.getAttribute('systemCode')}-${bDmCode.getAttribute('subSystemCode')}${bDmCode.getAttribute('subSubSystemCode')}-${bDmCode.getAttribute('assyCode')}-${bDmCode.getAttribute('disassyCode')}${bDmCode.getAttribute('disassyCodeVariant')}-${bDmCode.getAttribute('infoCode')}${bDmCode.getAttribute('infoCodeVariant')}-${bDmCode.getAttribute('itemLocationCode')}';
+
+            return aStr.compareTo(bStr);
+          });
+
           final pmEntry = XmlElement(XmlName('pmEntry'), [], [
             XmlElement(XmlName('pmEntryTitle'), [], [XmlText('Прочее (Код: ${entry.key})')]),
-            ...entry.value,
+            ...refs,
           ]);
           pmEntries.add(pmEntry);
         }
