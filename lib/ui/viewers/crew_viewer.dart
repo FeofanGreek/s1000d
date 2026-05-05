@@ -51,12 +51,28 @@ class _CrewViewerContent extends StatefulWidget {
 
 class _CrewViewerContentState extends State<_CrewViewerContent> {
   final ScrollController _scrollController = ScrollController();
-  int _previousItemCount = 0;
 
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        // Небольшая задержка, чтобы список успел обновить свои размеры
+        Future.delayed(const Duration(milliseconds: 50), () {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    });
   }
 
   Future<void> _validateDocument(
@@ -185,19 +201,6 @@ class _CrewViewerContentState extends State<_CrewViewerContent> {
     final controller = context.watch<CrewViewerController>();
     final isEditMode = controller.isEditMode;
 
-    if (controller.items.length > _previousItemCount) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-    }
-    _previousItemCount = controller.items.length;
-
     if (controller.items.isEmpty && !isEditMode) {
       return Scaffold(
         backgroundColor: QRHColors.primaryBg,
@@ -241,7 +244,7 @@ class _CrewViewerContentState extends State<_CrewViewerContent> {
               ),
               FloatingActionButton(
                 heroTag: 'add_header',
-                onPressed: controller.addHeader,
+                onPressed: () => controller.addHeader(_scrollToBottom),
                 backgroundColor: QRHColors.info,
                 mini: true,
                 child: const Icon(Icons.title, color: QRHColors.primaryBg),
@@ -376,7 +379,7 @@ class _CrewViewerContentState extends State<_CrewViewerContent> {
               ),
         floatingActionButton: null,
         bottomNavigationBar: isEditMode
-            ? const CrewEditToolsBar()
+            ? CrewEditToolsBar(onItemAdded: _scrollToBottom)
             : SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),

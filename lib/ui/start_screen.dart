@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../styles.dart';
 import '../controllers/app_controller.dart';
@@ -27,6 +28,13 @@ class StartScreen extends StatelessWidget {
     }
   }
 
+  Future<String> appVersion() async {
+    PackageInfo packageInfo = await PackageInfo.fromPlatform();
+    String buildNumber = packageInfo.buildNumber;
+    String version = packageInfo.version;
+    return version + ' +' + buildNumber;
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<AppController>();
@@ -35,10 +43,16 @@ class StartScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: QRHColors.primaryBg,
       appBar: AppBar(
-        title: Text(
-          isProjectLoaded
-              ? 'Проект: ${controller.techName} ${controller.workDir!.path.split(Platform.pathSeparator).last}'
-              : 'S1000D Viewer',
+        title: FutureBuilder<String>(
+          future: appVersion(),
+          builder: (context, snapshot) {
+            final versionSuffix = snapshot.hasData ? ' v.${snapshot.data}' : '';
+            return Text(
+              isProjectLoaded
+                  ? 'Проект: ${controller.techName} ${controller.workDir!.path.split(Platform.pathSeparator).last}$versionSuffix'
+                  : 'S1000D Viewer$versionSuffix',
+            );
+          },
         ),
         actions: [
           PopupMenuButton<String>(

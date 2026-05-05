@@ -714,6 +714,12 @@ class CrewViewerController extends ChangeNotifier {
       if (drill != null && drill.findElements('crewDrillStep').isEmpty && drill.findElements('title').isEmpty) {
         drill.parent?.children.remove(drill);
       }
+    } else if (item is CrewFigure) {
+      final drill = item.stepNode.parentElement;
+      item.stepNode.parent?.children.remove(item.stepNode);
+      if (drill != null && drill.findElements('crewDrillStep').isEmpty && drill.findElements('title').isEmpty) {
+        drill.parent?.children.remove(drill);
+      }
     } else if (item is CrewDescription) {
       final drill = item.stepNode.parentElement;
       item.stepNode.parentElement?.children.remove(item.stepNode);
@@ -739,7 +745,7 @@ class CrewViewerController extends ChangeNotifier {
     parseCrewData();
   }
 
-  void addStep() {
+  void addStep(VoidCallback onAdded) {
     final drills = document.findAllElements('crewDrill');
     XmlElement? parentNode;
     if (drills.isNotEmpty) {
@@ -772,10 +778,11 @@ class CrewViewerController extends ChangeNotifier {
 
       hasChanges = true;
       parseCrewData();
+      onAdded();
     }
   }
 
-  void addDescription() {
+  void addDescription(VoidCallback onAdded) {
     isEditMode = true;
     final drills = document.findAllElements('crewDrill');
     XmlElement? parentNode;
@@ -802,10 +809,11 @@ class CrewViewerController extends ChangeNotifier {
 
       hasChanges = true;
       parseCrewData();
+      onAdded();
     }
   }
 
-  void addAttention(String type) {
+  void addAttention(String type, VoidCallback onAdded) {
     isEditMode = true;
     final refCard = document.findAllElements('crewRefCard').firstOrNull;
     if (refCard != null) {
@@ -819,10 +827,11 @@ class CrewViewerController extends ChangeNotifier {
       refCard.children.add(drillNode);
       hasChanges = true;
       parseCrewData();
+      onAdded();
     }
   }
 
-  void addHeader() {
+  void addHeader(VoidCallback onAdded) {
     isEditMode = true;
     final drills = document.findAllElements('crewDrill');
     XmlElement? parentNode;
@@ -843,10 +852,11 @@ class CrewViewerController extends ChangeNotifier {
 
       hasChanges = true;
       parseCrewData();
+      onAdded();
     }
   }
 
-  void addCondition() {
+  void addCondition(VoidCallback onAdded) {
     isEditMode = true;
     final drills = document.findAllElements('crewDrill');
     XmlElement? parentNode;
@@ -889,6 +899,7 @@ class CrewViewerController extends ChangeNotifier {
 
       hasChanges = true;
       parseCrewData();
+      onAdded();
     }
   }
 
@@ -951,41 +962,48 @@ class CrewViewerController extends ChangeNotifier {
     if (oldIndex == newIndex) return;
 
     final itemToMove = items[oldIndex];
-    final targetItem = newIndex < items.length ? items[newIndex] : null;
-
     items.removeAt(oldIndex);
     items.insert(newIndex, itemToMove);
 
+    // Определяем DOM узел, который нужно переместить
     XmlNode? nodeToMove;
-    if (itemToMove is CrewStep)
+    if (itemToMove is CrewStep) {
       nodeToMove = itemToMove.parentStepNode;
-    else if (itemToMove is CrewDescription)
+    } else if (itemToMove is CrewDescription) {
       nodeToMove = itemToMove.stepNode;
-    else if (itemToMove is CrewCondition)
+    } else if (itemToMove is CrewCondition) {
       nodeToMove = itemToMove.stepNode;
-    else if (itemToMove is CrewAttention)
+    } else if (itemToMove is CrewAttention) {
       nodeToMove = itemToMove.node;
-    else if (itemToMove is CrewHeader)
+    } else if (itemToMove is CrewHeader) {
       nodeToMove = itemToMove.titleNode;
+    }
 
     if (nodeToMove != null && nodeToMove.parent != null) {
+      // Удаляем из текущего места в DOM
       nodeToMove.parent!.children.remove(nodeToMove);
 
+      // Ищем ближайший элемент ПОСЛЕ нового индекса, чтобы вставить перед ним
       XmlNode? targetNode;
-      if (targetItem != null) {
-        if (targetItem is CrewStep)
-          targetNode = targetItem.parentStepNode;
-        else if (targetItem is CrewDescription)
-          targetNode = targetItem.stepNode;
-        else if (targetItem is CrewCondition)
-          targetNode = targetItem.stepNode;
-        else if (targetItem is CrewAttention)
-          targetNode = targetItem.node;
-        else if (targetItem is CrewHeader)
-          targetNode = targetItem.titleNode;
+      for (int i = newIndex + 1; i < items.length; i++) {
+        final nextItem = items[i];
+        if (nextItem is CrewStep) {
+          targetNode = nextItem.parentStepNode;
+        } else if (nextItem is CrewDescription) {
+          targetNode = nextItem.stepNode;
+        } else if (nextItem is CrewCondition) {
+          targetNode = nextItem.stepNode;
+        } else if (nextItem is CrewAttention) {
+          targetNode = nextItem.node;
+        } else if (nextItem is CrewHeader) {
+          targetNode = nextItem.titleNode;
+        }
+
+        if (targetNode != null) break;
       }
 
       if (targetNode != null && targetNode.parent != null) {
+        // Вставляем перед найденным targetNode
         final parent = targetNode.parent!;
         final index = parent.children.indexOf(targetNode);
         if (index != -1) {
@@ -994,9 +1012,12 @@ class CrewViewerController extends ChangeNotifier {
           parent.children.add(nodeToMove);
         }
       } else {
+        // Если элемента после нет, значит это конец списка. Вставляем в конец последнего drill.
         final drills = document.findAllElements('crewDrill');
         if (drills.isNotEmpty) {
           drills.last.children.add(nodeToMove);
+        } else {
+          document.rootElement.children.add(nodeToMove);
         }
       }
 
@@ -1028,7 +1049,7 @@ class CrewViewerController extends ChangeNotifier {
     }
   }
 
-  Future<void> addReference(BuildContext context) async {
+  Future<void> addReference(BuildContext context, VoidCallback onAdded) async {
     final appCtrl = context.read<AppController>();
     if (appCtrl.workDir == null) {
       ScaffoldMessenger.of(
@@ -1158,6 +1179,7 @@ class CrewViewerController extends ChangeNotifier {
 
           hasChanges = true;
           parseCrewData();
+          onAdded();
         }
       }
     } catch (e) {
@@ -1169,7 +1191,7 @@ class CrewViewerController extends ChangeNotifier {
     }
   }
 
-  Future<void> addFigure(BuildContext context) async {
+  Future<void> addFigure(BuildContext context, VoidCallback onAdded) async {
     final appCtrl = context.read<AppController>();
     if (appCtrl.workDir == null) {
       ScaffoldMessenger.of(
@@ -1225,6 +1247,7 @@ class CrewViewerController extends ChangeNotifier {
 
           hasChanges = true;
           parseCrewData();
+          onAdded();
         }
       }
     } catch (e) {
