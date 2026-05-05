@@ -1,7 +1,7 @@
 name: gazprom_mi_render
 description: "Рендер QRH Газпром и МИ"
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+5
 
 environment:
   sdk: ^3.11.0
@@ -23,6 +23,7 @@ dependencies:
       #url: git@github.com:FeofanGreek/s1000dValidator.git
       url: https://github.com/FeofanGreek/s1000dValidator.git
       ref: main
+  package_info_plus:
 
 dev_dependencies:
   flutter_test:

@@ -67,85 +67,6 @@ class _CrewStepRowState extends State<CrewStepRow> {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // --- Chips (Типы экипажа) ---
-              if (widget.step.crewMembers.isNotEmpty || isEditMode) ...[
-                Wrap(
-                  spacing: 4.0,
-                  children: [
-                    ...widget.step.crewMembers.map(
-                      (cm) => isEditMode
-                          ? Chip(
-                              avatar: Image.asset(
-                                'assets/shilds/${cm.toLowerCase()}.png',
-                                //package: 'gazprom_mi_render',
-                                width: 20,
-                                height: 20,
-                                errorBuilder: (c, e, s) => const Icon(Icons.person, size: 14),
-                              ),
-                              label: Text(
-                                cm.toUpperCase(),
-                                style: const TextStyle(fontSize: 10, color: QRHColors.textPrimary),
-                              ),
-                              onDeleted: () => controller.removeCrewMember(widget.step, cm),
-                              deleteIcon: const Icon(Icons.close, size: 14),
-                              backgroundColor: QRHColors.accentBg,
-                              padding: EdgeInsets.zero,
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            )
-                          : Container(
-                              margin: const EdgeInsets.only(right: 4.0),
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: isChecked ? QRHColors.accentBg : QRHColors.info.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                  color: isChecked ? QRHColors.dividerColor : QRHColors.info.withValues(alpha: 0.5),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Image.asset(
-                                    'assets/shilds/${cm.toLowerCase()}.png',
-                                    //package: 'gazprom_mi_render',
-                                    width: 14,
-                                    height: 14,
-                                    errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-                                  ),
-                                  // const SizedBox(width: 4),
-                                  // Text(
-                                  //   cm.toUpperCase(),
-                                  //   style: TextStyle(
-                                  //     fontSize: 10,
-                                  //     color: isChecked ? QRHColors.textTertiary : QRHColors.info,
-                                  //     fontWeight: FontWeight.bold,
-                                  //   ),
-                                  // ),
-                                ],
-                              ),
-                            ),
-                    ),
-                    if (isEditMode)
-                      InkWell(
-                        onTap: () => controller.showAddCrewMemberDialog(context, widget.step),
-                        child: Container(
-                          margin: const EdgeInsets.only(top: 4),
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: QRHColors.info),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            '+',
-                            style: TextStyle(color: QRHColors.info, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(width: 8),
-              ],
-
               // --- Challenge (Вызов) ---
               if (isChallengeResponseStep && (widget.step.challenge.isNotEmpty || isEditMode))
                 ConstrainedBox(
@@ -282,6 +203,53 @@ class _CrewStepRowState extends State<CrewStepRow> {
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
+
+              // --- Chips (Типы экипажа) ---
+              if (widget.step.crewMembers.isNotEmpty || isEditMode) ...[
+                Wrap(
+                  spacing: 4.0,
+                  children: [
+                    ...widget.step.crewMembers.map(
+                      (cm) => Container(
+                        margin: const EdgeInsets.only(right: 4.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isChecked ? QRHColors.accentBg : QRHColors.info.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: isChecked ? QRHColors.dividerColor : QRHColors.info.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Text(
+                          cm.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isChecked ? QRHColors.textTertiary : QRHColors.info,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (isEditMode)
+                      InkWell(
+                        onTap: () => controller.showAddCrewMemberDialog(context, widget.step),
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: QRHColors.info),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            '+',
+                            style: TextStyle(color: QRHColors.info, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 8),
+              ],
             ],
           );
         },
