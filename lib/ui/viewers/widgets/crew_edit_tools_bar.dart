@@ -38,9 +38,7 @@ class CrewEditToolsBar extends StatelessWidget {
         height: 60,
         decoration: const BoxDecoration(
           color: QRHColors.primaryBg,
-          border: Border(
-            top: BorderSide(color: QRHColors.borderColor),
-          ),
+          border: Border(top: BorderSide(color: QRHColors.borderColor)),
         ),
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -77,6 +75,12 @@ class CrewEditToolsBar extends StatelessWidget {
                 color: Colors.blueAccent,
                 icon: Icons.image,
                 label: 'Изображение',
+              ),
+              _buildToolButton(
+                onPressed: () => controller.addTable(onItemAdded),
+                color: Colors.teal,
+                icon: Icons.grid_on,
+                label: 'Таблица',
               ),
               _buildToolButton(
                 onPressed: () => controller.addAttention('warning', onItemAdded),

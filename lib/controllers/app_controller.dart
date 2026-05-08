@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
@@ -10,7 +9,6 @@ import '../styles.dart';
 import '../utils/s1000d_ident_and_status.dart';
 import '../utils/s1000d_pm_builder.dart';
 import '../utils/s1000d_md_parser.dart';
-import '../ui/widgets/dialog_field.dart';
 import '../ui/widgets/new_file_dialog.dart';
 import '../ui/widgets/project_settings_form.dart';
 
@@ -19,8 +17,6 @@ class AppController with ChangeNotifier {
 
   // 1. КОНСТАНТЫ ПРОЕКТА (Переиспользуемые параметры)
   String modelIdentCode = 'MI171A3';
-  String languageIsoCode = 'ru';
-  String languageCountryIsoCode = 'RU';
   String techName = 'Ми-171А3';
 
   String partnerCode = 'GAZPR';
@@ -42,8 +38,6 @@ class AppController with ChangeNotifier {
         final data = jsonDecode(jsonString) as Map<String, dynamic>;
 
         modelIdentCode = data['modelIdentCode'] ?? modelIdentCode;
-        languageIsoCode = data['languageIsoCode'] ?? languageIsoCode;
-        languageCountryIsoCode = data['languageCountryIsoCode'] ?? languageCountryIsoCode;
         techName = data['techName'] ?? techName;
         partnerCode = data['partnerCode'] ?? partnerCode;
         partnerName = data['partnerName'] ?? partnerName;
@@ -63,8 +57,6 @@ class AppController with ChangeNotifier {
 
     final data = {
       'modelIdentCode': modelIdentCode,
-      'languageIsoCode': languageIsoCode,
-      'languageCountryIsoCode': languageCountryIsoCode,
       'techName': techName,
       'partnerCode': partnerCode,
       'partnerName': partnerName,
@@ -91,20 +83,6 @@ class AppController with ChangeNotifier {
           final content = await file.readAsString();
           final document = XmlDocument.parse(content);
           bool changed = false;
-
-          // Обновляем language
-          final languageElements = document.findAllElements('language');
-          if (languageElements.isNotEmpty) {
-            final el = languageElements.first;
-            if (el.getAttribute('countryIsoCode') != languageCountryIsoCode) {
-              el.setAttribute('countryIsoCode', languageCountryIsoCode);
-              changed = true;
-            }
-            if (el.getAttribute('languageIsoCode') != languageIsoCode) {
-              el.setAttribute('languageIsoCode', languageIsoCode);
-              changed = true;
-            }
-          }
 
           // Обновляем techName
           final techNameElements = document.findAllElements('techName');
@@ -170,8 +148,8 @@ class AppController with ChangeNotifier {
             for (var dt in displayTexts) {
               final paras = dt.findElements('simplePara');
               if (paras.isNotEmpty && paras.first.innerText != techName) {
-                 paras.first.innerText = techName;
-                 changed = true;
+                paras.first.innerText = techName;
+                changed = true;
               }
             }
           }
@@ -179,31 +157,31 @@ class AppController with ChangeNotifier {
           // Обновляем brexDmRef
           final brexDmRefElements = document.findAllElements('brexDmRef');
           for (var brex in brexDmRefElements) {
-             final dmRefIdent = brex.findAllElements('dmRefIdent').firstOrNull;
-             final dmCode = dmRefIdent?.findAllElements('dmCode').firstOrNull;
-             if (dmCode != null) {
-                if (dmCode.getAttribute('modelIdentCode') != modelIdentCode) {
-                   dmCode.setAttribute('modelIdentCode', modelIdentCode);
-                   changed = true;
-                }
-                if (dmCode.getAttribute('infoCode') != brexInfoCode) {
-                   dmCode.setAttribute('infoCode', brexInfoCode);
-                   changed = true;
-                }
-                if (dmCode.getAttribute('itemLocationCode') != brexLocation) {
-                   dmCode.setAttribute('itemLocationCode', brexLocation);
-                   changed = true;
-                }
-             }
+            final dmRefIdent = brex.findAllElements('dmRefIdent').firstOrNull;
+            final dmCode = dmRefIdent?.findAllElements('dmCode').firstOrNull;
+            if (dmCode != null) {
+              if (dmCode.getAttribute('modelIdentCode') != modelIdentCode) {
+                dmCode.setAttribute('modelIdentCode', modelIdentCode);
+                changed = true;
+              }
+              if (dmCode.getAttribute('infoCode') != brexInfoCode) {
+                dmCode.setAttribute('infoCode', brexInfoCode);
+                changed = true;
+              }
+              if (dmCode.getAttribute('itemLocationCode') != brexLocation) {
+                dmCode.setAttribute('itemLocationCode', brexLocation);
+                changed = true;
+              }
+            }
           }
 
           // Обновляем dmCode текущего документа
           final dmCodeElements = document.findAllElements('dmCode');
           for (var dmCode in dmCodeElements) {
-             if (dmCode.getAttribute('modelIdentCode') != modelIdentCode) {
-                 dmCode.setAttribute('modelIdentCode', modelIdentCode);
-                 changed = true;
-             }
+            if (dmCode.getAttribute('modelIdentCode') != modelIdentCode) {
+              dmCode.setAttribute('modelIdentCode', modelIdentCode);
+              changed = true;
+            }
           }
 
           if (changed) {
@@ -243,8 +221,6 @@ class AppController with ChangeNotifier {
 
   Future<void> showProjectSettingsDialog(BuildContext context, Directory dir) async {
     final modelIdentCodeCtrl = TextEditingController(text: modelIdentCode);
-    final languageIsoCodeCtrl = TextEditingController(text: languageIsoCode);
-    final languageCountryIsoCodeCtrl = TextEditingController(text: languageCountryIsoCode);
     final techNameCtrl = TextEditingController(text: techName);
     final partnerCodeCtrl = TextEditingController(text: partnerCode);
     final partnerNameCtrl = TextEditingController(text: partnerName);
@@ -265,8 +241,6 @@ class AppController with ChangeNotifier {
             child: SingleChildScrollView(
               child: ProjectSettingsForm(
                 modelIdentCodeCtrl: modelIdentCodeCtrl,
-                languageIsoCodeCtrl: languageIsoCodeCtrl,
-                languageCountryIsoCodeCtrl: languageCountryIsoCodeCtrl,
                 techNameCtrl: techNameCtrl,
                 partnerCodeCtrl: partnerCodeCtrl,
                 partnerNameCtrl: partnerNameCtrl,
@@ -294,8 +268,6 @@ class AppController with ChangeNotifier {
     if (result == true) {
       workDir = dir;
       modelIdentCode = modelIdentCodeCtrl.text;
-      languageIsoCode = languageIsoCodeCtrl.text;
-      languageCountryIsoCode = languageCountryIsoCodeCtrl.text;
       techName = techNameCtrl.text;
       partnerCode = partnerCodeCtrl.text;
       partnerName = partnerNameCtrl.text;
@@ -369,6 +341,9 @@ class AppController with ChangeNotifier {
         initialInfoCode: defaultInfoCode,
         initialInfoCodeVariant: defaultVariant,
         initialInfoName: '',
+        initialLanguageIsoCode: 'ru',
+        initialLanguageCountryIsoCode: 'RU',
+        modelIdentCode: modelIdentCode,
         isFileExists: (sys, info, varCode) => isDmCodeOccupied(sys, info, varCode, diffCode: 'AAA'),
       ),
     );
@@ -378,12 +353,20 @@ class AppController with ChangeNotifier {
       final sysCode = result['sysCode']!;
       final infoCode = result['infoCode']!;
       final infoCodeVar = result['infoCodeVar']!;
+      final languageIsoCode = result['languageIsoCode']!;
+      final languageCountryIsoCode = result['languageCountryIsoCode']!;
+      final issueNumber = result['issueNumber']!;
+      final inWork = result['inWork']!;
 
       final params = createChecklistParams(
         infoName: infoName,
         systemCode: sysCode,
         infoCode: infoCode,
         infoCodeVariant: infoCodeVar,
+        languageIsoCode: languageIsoCode,
+        languageCountryIsoCode: languageCountryIsoCode,
+        issueNumber: issueNumber,
+        inWork: inWork,
       );
 
       final identXml = createIdentAndStatusSection(params);
@@ -411,12 +394,7 @@ $identXml
         final document = XmlDocument.parse(fullXmlString);
         context.push(
           '/crew_viewer',
-          extra: {
-            'document': document,
-            'fileName': fileName,
-            'filePath': filePath,
-            'fileTitle': params.infoName,
-          },
+          extra: {'document': document, 'fileName': fileName, 'filePath': filePath, 'fileTitle': params.infoName},
         );
       }
     }
@@ -442,11 +420,7 @@ $identXml
       if (context.mounted) {
         context.push(
           '/xml_viewer',
-          extra: {
-            'xmlContent': content,
-            'fileName': platformFile.name,
-            'filePath': kIsWeb ? null : platformFile.path,
-          },
+          extra: {'xmlContent': content, 'fileName': platformFile.name, 'filePath': kIsWeb ? null : platformFile.path},
         );
       }
     }
@@ -500,6 +474,9 @@ $identXml
           initialInfoCode: defaultInfoCode,
           initialInfoCodeVariant: defaultVariant,
           initialInfoName: defaultInfoName,
+          initialLanguageIsoCode: 'ru',
+          initialLanguageCountryIsoCode: 'RU',
+          modelIdentCode: modelIdentCode,
           isFileExists: (sys, info, varCode) => isDmCodeOccupied(sys, info, varCode, diffCode: 'AAA'),
         ),
       );
@@ -509,6 +486,10 @@ $identXml
         final sysCode = dialogResult['sysCode']!;
         final infoCode = dialogResult['infoCode']!;
         final infoCodeVar = dialogResult['infoCodeVar']!;
+        final languageIsoCode = dialogResult['languageIsoCode']!;
+        final languageCountryIsoCode = dialogResult['languageCountryIsoCode']!;
+        final issueNumber = dialogResult['issueNumber']!;
+        final inWork = dialogResult['inWork']!;
 
         final params = createChecklistParams(
           infoName: infoName,
@@ -516,6 +497,10 @@ $identXml
           infoCode: infoCode,
           infoCodeVariant: infoCodeVar,
           systemDiffCode: isCrew ? 'AAA' : 'A',
+          languageIsoCode: languageIsoCode,
+          languageCountryIsoCode: languageCountryIsoCode,
+          issueNumber: issueNumber,
+          inWork: inWork,
         );
 
         final identXml = createIdentAndStatusSection(params);
@@ -545,21 +530,12 @@ ${contentXml.toXmlString(pretty: true)}
           if (isCrew) {
             context.push(
               '/crew_viewer',
-              extra: {
-                'document': document,
-                'fileName': fileName,
-                'filePath': filePath,
-                'fileTitle': params.infoName,
-              },
+              extra: {'document': document, 'fileName': fileName, 'filePath': filePath, 'fileTitle': params.infoName},
             );
           } else {
             context.push(
               '/description_viewer',
-              extra: {
-                'document': document,
-                'fileName': fileName,
-                'filePath': filePath,
-              },
+              extra: {'document': document, 'fileName': fileName, 'filePath': filePath},
             );
           }
         }
@@ -572,35 +548,36 @@ ${contentXml.toXmlString(pretty: true)}
   Future<void> openOrGenerateTOC(BuildContext context, bool rebuild) async {
     if (workDir == null) return;
 
-    // Пытаемся найти существующий PMC (оглавление)
-    File? tocFile;
+    // Ищем общее оглавление (Common). Мы условимся, что оно имеет pmNumber '00001'.
+    File? commonTocFile;
     try {
       final entities = await workDir!.list().toList();
       for (var entity in entities) {
         if (entity is File) {
           final fileName = entity.uri.pathSegments.last;
-          if (fileName.toUpperCase().startsWith('PMC-$modelIdentCode-') && fileName.toUpperCase().endsWith('.XML')) {
-            tocFile = entity;
-            break;
+          // Ищем именно PMC для текущей модели и партнера с номером 00001 (наш стандарт для Common)
+          if (fileName.toUpperCase().contains('-00001-') &&
+              fileName.toUpperCase().startsWith('PMC-$modelIdentCode-') &&
+              fileName.toUpperCase().endsWith('.XML')) {
+            commonTocFile = entity;
+            if (!rebuild) break;
           }
         }
       }
     } catch (e) {
       debugPrint('Ошибка при поиске файла оглавления: $e');
     }
-
-    if (!rebuild && tocFile != null && await tocFile.exists()) {
-      // Файл существует, просто открываем его
+    if (!rebuild && commonTocFile != null && await commonTocFile.exists()) {
       try {
-        final content = await tocFile.readAsString();
+        final content = await commonTocFile.readAsString();
         final document = XmlDocument.parse(content);
         if (context.mounted) {
           context.push(
             '/pm_viewer',
             extra: {
               'document': document,
-              'fileName': tocFile.uri.pathSegments.last,
-              'filePath': tocFile.path,
+              'fileName': commonTocFile.uri.pathSegments.last,
+              'filePath': commonTocFile.path,
             },
           );
         }
@@ -612,17 +589,15 @@ ${contentXml.toXmlString(pretty: true)}
         }
       }
     } else {
-      // Файла нет, генерируем новый
+      // Файла нет или нужна перегенерация: генерируем ВСЕ оглавления
       if (context.mounted) {
-        await generateTOC(context);
+        await generateAllTOCs(context);
       }
     }
   }
 
-  Future<void> generateTOC(BuildContext context, {bool openViewer = true}) async {
-    if (workDir == null) return;
-    print(workDir!.path);
-    // Покажем лоадер, если файлов много
+  Future<void> generateAllTOCs(BuildContext context) async {
+    // Показываем один лоадер на всю операцию
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -630,8 +605,103 @@ ${contentXml.toXmlString(pretty: true)}
     );
 
     try {
+      final languages = await _getProjectLanguages();
+
+      // 1. Генерируем ОБЩЕЕ оглавление
+      final mainLang = languages.isNotEmpty ? languages.first.split('-') : ['ru', 'RU'];
+      final commonResult = await generateTOC(
+        context,
+        showLoader: false, // Отключаем внутренний лоадер
+        openViewer: false, // Не открываем сразу
+        isCommon: true,
+        overrideLanguageIso: mainLang[0],
+        overrideCountryIso: mainLang[1],
+        pmNumberOverride: '00001',
+      );
+
+      // 2. Генерируем языковые оглавления
+      for (final langTag in languages) {
+        final parts = langTag.split('-');
+        await generateTOC(
+          context,
+          showLoader: false,
+          openViewer: false,
+          overrideLanguageIso: parts[0],
+          overrideCountryIso: parts[1],
+          pmNumberOverride: '00002',
+        );
+      }
+
+      // Закрываем лоадер
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+
+        // 3. Открываем ОБЩЕЕ оглавление
+        if (commonResult != null) {
+          context.push(
+            '/pm_viewer',
+            extra: {
+              'document': XmlDocument.parse(commonResult['xml']),
+              'fileName': commonResult['fileName'],
+              'filePath': commonResult['filePath'],
+            },
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка пакетной генерации: $e'), backgroundColor: QRHColors.danger));
+      }
+    }
+  }
+
+  Future<Set<String>> _getProjectLanguages() async {
+    final languages = <String>{};
+    if (workDir == null) return languages;
+
+    final entities = await workDir!.list().toList();
+    final xmlFiles = entities.whereType<File>().where((f) => f.path.toLowerCase().endsWith('.xml'));
+
+    for (var file in xmlFiles) {
+      final fileName = file.uri.pathSegments.last;
+      if (!fileName.toUpperCase().startsWith('DMC-')) continue;
+
+      final langMatch = RegExp(r'_([a-z]{2})-([A-Z]{2})\.XML$', caseSensitive: false).firstMatch(fileName);
+      if (langMatch != null) {
+        languages.add('${langMatch.group(1)!.toLowerCase()}-${langMatch.group(2)!.toUpperCase()}');
+      }
+    }
+    return languages;
+  }
+
+  Future<Map<String, dynamic>?> generateTOC(
+    BuildContext context, {
+    bool openViewer = true,
+    bool showLoader = true,
+    String? overrideLanguageIso,
+    String? overrideCountryIso,
+    bool isCommon = false,
+    String? pmNumberOverride,
+  }) async {
+    if (workDir == null) return null;
+
+    if (showLoader) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    try {
       final entities = await workDir!.list().toList();
       final xmlFiles = entities.whereType<File>().where((f) => f.path.toLowerCase().endsWith('.xml'));
+
+      final targetLangIso = overrideLanguageIso ?? 'ru';
+      final targetCountryIso = overrideCountryIso ?? 'RU';
 
       final Map<String, String> infoCategories = {
         '040': '040: Аварийные ситуации',
@@ -644,26 +714,31 @@ ${contentXml.toXmlString(pretty: true)}
         '001': '001: Общие данные',
       };
 
-      final List<String> categoryOrder = [
-        '040', '050', '030', '060', '020', '005', '041', '001'
-      ];
+      final List<String> categoryOrder = ['040', '050', '030', '060', '020', '005', '041', '001'];
 
       Map<String, List<XmlElement>> groupedRefs = {};
 
       for (var file in xmlFiles) {
         final fileName = file.uri.pathSegments.last;
-        // Пропускаем PMC и другие не-DM файлы
         if (!fileName.toUpperCase().startsWith('DMC-')) continue;
 
         final content = await file.readAsString();
         final dmDoc = XmlDocument.parse(content);
-
         final dmIdent = dmDoc.findAllElements('dmIdent').firstOrNull;
         final dmTitle = dmDoc.findAllElements('dmTitle').firstOrNull;
 
         if (dmIdent != null) {
           final dmCode = dmIdent.findElements('dmCode').firstOrNull;
           final infoCode = dmCode?.getAttribute('infoCode') ?? '';
+
+          if (!isCommon) {
+            final langNode = dmIdent.findElements('language').firstOrNull;
+            if (langNode != null) {
+              final fileLang = langNode.getAttribute('languageIsoCode');
+              final fileCountry = langNode.getAttribute('countryIsoCode');
+              if (fileLang != targetLangIso || fileCountry != targetCountryIso) continue;
+            }
+          }
 
           final dmRef = XmlElement(XmlName('dmRef'), [], [
             XmlElement(XmlName('dmRefIdent'), [], [
@@ -673,71 +748,58 @@ ${contentXml.toXmlString(pretty: true)}
             ]),
             XmlElement(XmlName('dmRefAddressItems'), [], [if (dmTitle != null) dmTitle.copy()]),
           ]);
-          
+
           groupedRefs.putIfAbsent(infoCode, () => []).add(dmRef);
         }
       }
 
       List<XmlElement> pmEntries = [];
-
-      // Добавляем главный заголовок PMC (опционально, но S1000D допускает вложенные pmEntry)
       for (var code in categoryOrder) {
         if (groupedRefs.containsKey(code)) {
           final refs = groupedRefs[code]!;
-
-          // Сортировка ссылок внутри категории по имени файла (DM Code)
           refs.sort((a, b) {
             final aDmCode = a.findElements('dmRefIdent').firstOrNull?.findElements('dmCode').firstOrNull;
             final bDmCode = b.findElements('dmRefIdent').firstOrNull?.findElements('dmCode').firstOrNull;
-
-            if (aDmCode == null && bDmCode == null) return 0;
-            if (aDmCode == null) return 1;
-            if (bDmCode == null) return -1;
-
-            // Собираем коды в строку для лексикографического сравнения (подобно имени файла)
-            final aStr = '${aDmCode.getAttribute('modelIdentCode')}-${aDmCode.getAttribute('systemDiffCode')}-${aDmCode.getAttribute('systemCode')}-${aDmCode.getAttribute('subSystemCode')}${aDmCode.getAttribute('subSubSystemCode')}-${aDmCode.getAttribute('assyCode')}-${aDmCode.getAttribute('disassyCode')}${aDmCode.getAttribute('disassyCodeVariant')}-${aDmCode.getAttribute('infoCode')}${aDmCode.getAttribute('infoCodeVariant')}-${aDmCode.getAttribute('itemLocationCode')}';
-            final bStr = '${bDmCode.getAttribute('modelIdentCode')}-${bDmCode.getAttribute('systemDiffCode')}-${bDmCode.getAttribute('systemCode')}-${bDmCode.getAttribute('subSystemCode')}${bDmCode.getAttribute('subSubSystemCode')}-${bDmCode.getAttribute('assyCode')}-${bDmCode.getAttribute('disassyCode')}${bDmCode.getAttribute('disassyCodeVariant')}-${bDmCode.getAttribute('infoCode')}${bDmCode.getAttribute('infoCodeVariant')}-${bDmCode.getAttribute('itemLocationCode')}';
-
+            if (aDmCode == null || bDmCode == null) return 0;
+            final aStr =
+                '${aDmCode.getAttribute('modelIdentCode')}-${aDmCode.getAttribute('systemDiffCode')}-${aDmCode.getAttribute('systemCode')}-${aDmCode.getAttribute('subSystemCode')}${aDmCode.getAttribute('subSubSystemCode')}-${aDmCode.getAttribute('assyCode')}-${aDmCode.getAttribute('disassyCode')}${aDmCode.getAttribute('disassyCodeVariant')}-${aDmCode.getAttribute('infoCode')}${aDmCode.getAttribute('infoCodeVariant')}-${aDmCode.getAttribute('itemLocationCode')}';
+            final bStr =
+                '${bDmCode.getAttribute('modelIdentCode')}-${bDmCode.getAttribute('systemDiffCode')}-${bDmCode.getAttribute('systemCode')}-${bDmCode.getAttribute('subSystemCode')}${bDmCode.getAttribute('subSubSystemCode')}-${bDmCode.getAttribute('assyCode')}-${bDmCode.getAttribute('disassyCode')}${bDmCode.getAttribute('disassyCodeVariant')}-${bDmCode.getAttribute('infoCode')}${bDmCode.getAttribute('infoCodeVariant')}-${bDmCode.getAttribute('itemLocationCode')}';
             return aStr.compareTo(bStr);
           });
-          
-          final pmEntry = XmlElement(XmlName('pmEntry'), [], [
-            XmlElement(XmlName('pmEntryTitle'), [], [XmlText(infoCategories[code]!)]),
-            ...refs,
-          ]);
-          pmEntries.add(pmEntry);
+
+          pmEntries.add(
+            XmlElement(XmlName('pmEntry'), [], [
+              XmlElement(XmlName('pmEntryTitle'), [], [XmlText(infoCategories[code]!)]),
+              ...refs,
+            ]),
+          );
           groupedRefs.remove(code);
         }
       }
 
-      if (groupedRefs.isNotEmpty) {
-        for (var entry in groupedRefs.entries) {
-          final refs = entry.value;
-
-          refs.sort((a, b) {
-            final aDmCode = a.findElements('dmRefIdent').firstOrNull?.findElements('dmCode').firstOrNull;
-            final bDmCode = b.findElements('dmRefIdent').firstOrNull?.findElements('dmCode').firstOrNull;
-
-            if (aDmCode == null && bDmCode == null) return 0;
-            if (aDmCode == null) return 1;
-            if (bDmCode == null) return -1;
-
-            final aStr = '${aDmCode.getAttribute('modelIdentCode')}-${aDmCode.getAttribute('systemDiffCode')}-${aDmCode.getAttribute('systemCode')}-${aDmCode.getAttribute('subSystemCode')}${aDmCode.getAttribute('subSubSystemCode')}-${aDmCode.getAttribute('assyCode')}-${aDmCode.getAttribute('disassyCode')}${aDmCode.getAttribute('disassyCodeVariant')}-${aDmCode.getAttribute('infoCode')}${aDmCode.getAttribute('infoCodeVariant')}-${aDmCode.getAttribute('itemLocationCode')}';
-            final bStr = '${bDmCode.getAttribute('modelIdentCode')}-${bDmCode.getAttribute('systemDiffCode')}-${bDmCode.getAttribute('systemCode')}-${bDmCode.getAttribute('subSystemCode')}${bDmCode.getAttribute('subSubSystemCode')}-${bDmCode.getAttribute('assyCode')}-${bDmCode.getAttribute('disassyCode')}${bDmCode.getAttribute('disassyCodeVariant')}-${bDmCode.getAttribute('infoCode')}${bDmCode.getAttribute('infoCodeVariant')}-${bDmCode.getAttribute('itemLocationCode')}';
-
-            return aStr.compareTo(bStr);
-          });
-
-          final pmEntry = XmlElement(XmlName('pmEntry'), [], [
+      for (var entry in groupedRefs.entries) {
+        final refs = entry.value;
+        refs.sort((a, b) {
+          final aDmCode = a.findElements('dmRefIdent').firstOrNull?.findElements('dmCode').firstOrNull;
+          final bDmCode = b.findElements('dmRefIdent').firstOrNull?.findElements('dmCode').firstOrNull;
+          if (aDmCode == null || bDmCode == null) return 0;
+          final aStr =
+              '${aDmCode.getAttribute('modelIdentCode')}-${aDmCode.getAttribute('systemDiffCode')}-${aDmCode.getAttribute('systemCode')}-${aDmCode.getAttribute('subSystemCode')}${aDmCode.getAttribute('subSubSystemCode')}-${aDmCode.getAttribute('assyCode')}-${aDmCode.getAttribute('disassyCode')}${aDmCode.getAttribute('disassyCodeVariant')}-${aDmCode.getAttribute('infoCode')}${aDmCode.getAttribute('infoCodeVariant')}-${aDmCode.getAttribute('itemLocationCode')}';
+          final bStr =
+              '${bDmCode.getAttribute('modelIdentCode')}-${bDmCode.getAttribute('systemDiffCode')}-${bDmCode.getAttribute('systemCode')}-${bDmCode.getAttribute('subSystemCode')}${bDmCode.getAttribute('subSubSystemCode')}-${bDmCode.getAttribute('assyCode')}-${bDmCode.getAttribute('disassyCode')}${bDmCode.getAttribute('disassyCodeVariant')}-${bDmCode.getAttribute('infoCode')}${bDmCode.getAttribute('infoCodeVariant')}-${bDmCode.getAttribute('itemLocationCode')}';
+          return aStr.compareTo(bStr);
+        });
+        pmEntries.add(
+          XmlElement(XmlName('pmEntry'), [], [
             XmlElement(XmlName('pmEntryTitle'), [], [XmlText('Прочее (Код: ${entry.key})')]),
             ...refs,
-          ]);
-          pmEntries.add(pmEntry);
-        }
+          ]),
+        );
       }
 
-      final pmIssuer = partnerCode; // Используем partnerCode как pmIssuer
-      final pmNumber = '00001';
+      final pmIssuer = partnerCode;
+      final pmNumber = pmNumberOverride ?? '00001';
       final pmVolume = '00';
 
       final pmcXml = S1000DPmBuilder.buildPmXml(
@@ -745,62 +807,62 @@ ${contentXml.toXmlString(pretty: true)}
         pmIssuer: pmIssuer,
         pmNumber: pmNumber,
         pmVolume: pmVolume,
-        languageIsoCode: languageIsoCode,
-        countryIsoCode: languageCountryIsoCode,
+        languageIsoCode: targetLangIso,
+        countryIsoCode: targetCountryIso,
         issueNumber: '001',
         inWork: '00',
         techName: techName,
-        pmTitle: 'Сводное оглавление проекта',
+        pmTitle: isCommon
+            ? 'Сводное оглавление проекта (ОБЩЕЕ)'
+            : 'Сводное оглавление проекта ($targetLangIso-$targetCountryIso)',
         partnerCode: partnerCode,
         partnerName: partnerName,
         dataDistribution: dataDistribution,
         copyrightPara: copyrightPara,
-        brexHref: '', // Заглушка, можно тоже брать из params
+        brexHref: '',
         pmEntries: pmEntries,
       );
 
       final pmcFileName =
-          'PMC-$modelIdentCode-$pmIssuer-$pmNumber-${pmVolume}_001-00_$languageIsoCode-$languageCountryIsoCode.XML';
+          'PMC-$modelIdentCode-$pmIssuer-$pmNumber-${pmVolume}_001-00_$targetLangIso-$targetCountryIso.XML';
       final pmcFilePath = '${workDir!.path}${Platform.pathSeparator}$pmcFileName';
+      await File(pmcFilePath).writeAsString(pmcXml);
 
-      final pmcFile = File(pmcFilePath);
-      await pmcFile.writeAsString(pmcXml);
-
-      if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop(); // Закрыть лоадер
-
-        if (openViewer) {
-          final document = XmlDocument.parse(pmcXml);
-          context.push(
-            '/pm_viewer',
-            extra: {
-              'document': document,
-              'fileName': pmcFileName,
-              'filePath': pmcFilePath,
-            },
-          );
-        }
+      if (showLoader && context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
       }
+
+      if (openViewer && context.mounted) {
+        context.push(
+          '/pm_viewer',
+          extra: {'document': XmlDocument.parse(pmcXml), 'fileName': pmcFileName, 'filePath': pmcFilePath},
+        );
+      }
+
+      return {'xml': pmcXml, 'fileName': pmcFileName, 'filePath': pmcFilePath};
     } catch (e) {
-      if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop(); // Закрыть лоадер
+      if (showLoader && context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Ошибка генерации оглавления: $e'), backgroundColor: QRHColors.danger));
       }
+      rethrow;
     }
   }
 
-  // 3. ЛОГИКА ГЕНЕРАЦИИ (осталась прежней)
   IdentAndStatusSectionParams createChecklistParams({
     required String infoName,
     required String systemCode,
     required String infoCode,
     String? infoCodeVariant,
     String? systemDiffCode,
+    String languageIsoCode = 'ru',
+    String languageCountryIsoCode = 'RU',
+    String issueNumber = '001',
+    String inWork = '00',
   }) {
     final now = DateTime.now();
-    String autoIssueNumber = _calculateNextIssueNumber(systemCode, infoCode);
 
     return IdentAndStatusSectionParams(
       modelIdentCode: modelIdentCode,
@@ -821,8 +883,8 @@ ${contentXml.toXmlString(pretty: true)}
       languageIsoCode: languageIsoCode,
       techName: techName,
 
-      issueNumber: autoIssueNumber,
-      inWork: '00',
+      issueNumber: issueNumber,
+      inWork: inWork,
       issueYear: now.year.toString(),
       issueMonth: now.month.toString().padLeft(2, '0'),
       issueDay: now.day.toString().padLeft(2, '0'),

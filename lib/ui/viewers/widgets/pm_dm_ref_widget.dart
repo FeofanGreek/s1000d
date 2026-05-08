@@ -7,13 +7,17 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:xml/xml.dart';
 import '../../../controllers/app_controller.dart';
+import '../../../controllers/pm_viewer_controller.dart';
 import '../../../styles.dart';
+import '../../../utils/s1000d_utils.dart';
 
 class PmDmRefWidget extends StatelessWidget {
   final XmlElement dmRef;
   final int depth;
+  final bool isEditing;
+  final VoidCallback? onDelete;
 
-  const PmDmRefWidget({super.key, required this.dmRef, required this.depth});
+  const PmDmRefWidget({super.key, required this.dmRef, required this.depth, this.isEditing = false, this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +36,9 @@ class PmDmRefWidget extends StatelessWidget {
       }
     }
 
-    final prefix = _buildDmcPrefix(dmRef);
+    final prefix = S1000DUtils.buildDmcPrefixFromIdent(dmRef);
+    final pmController = context.watch<PmViewerController>();
+    final missingLangs = pmController.getMissingLanguagesForDm(dmRef);
 
     // В S1000D структура: dmRef -> dmRefAddressItems -> dmTitle -> techName / infoName
     final dmRefAddressItems = dmRef.findElements('dmRefAddressItems').firstOrNull;
@@ -51,7 +57,7 @@ class PmDmRefWidget extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _openDm(context, prefix, title),
+          onTap: isEditing ? null : () => _openDm(context, prefix, title),
           borderRadius: BorderRadius.circular(6),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
@@ -67,9 +73,26 @@ class PmDmRefWidget extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
-                        style: const TextStyle(color: QRHColors.info, fontSize: 16, fontWeight: FontWeight.w500),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: const TextStyle(color: QRHColors.info, fontSize: 16, fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                          if (missingLangs.isNotEmpty)
+                            Tooltip(
+                              message: 'Отсутствуют языки: ${missingLangs.join(', ')}',
+                              child: TextButton.icon(
+                                onPressed: () =>
+                                    pmController.addMissingLanguages(context, dmRef, context.read<AppController>()),
+                                icon: const Icon(Icons.language, size: 16, color: QRHColors.warning),
+                                label: const Text('Добавить', style: TextStyle(fontSize: 12, color: QRHColors.warning)),
+                                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
+                              ),
+                            ),
+                        ],
                       ),
                       if (title != prefix)
                         Padding(
@@ -79,42 +102,17 @@ class PmDmRefWidget extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (isEditing)
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: QRHColors.danger),
+                    onPressed: onDelete,
+                  ),
               ],
             ),
           ),
         ),
       ),
     );
-  }
-
-  // Формируем стандартный префикс файла DMC-
-  String _buildDmcPrefix(XmlElement dmRef) {
-    final dmRefIdent = dmRef.findElements('dmRefIdent').firstOrNull;
-    final dmCode = dmRefIdent?.findElements('dmCode').firstOrNull ?? dmRef.findAllElements('dmCode').firstOrNull;
-    if (dmCode == null) return '';
-
-    final model = dmCode.getAttribute('modelIdentCode') ?? '';
-    final sdc = dmCode.getAttribute('systemDiffCode') ?? '';
-    final sc = dmCode.getAttribute('systemCode') ?? '';
-    final ssc = dmCode.getAttribute('subSystemCode') ?? '';
-    final sssc = dmCode.getAttribute('subSubSystemCode') ?? '';
-    final ac = dmCode.getAttribute('assyCode') ?? '';
-    final dc = dmCode.getAttribute('disassyCode') ?? '';
-    final dcv = dmCode.getAttribute('disassyCodeVariant') ?? '';
-    final ic = dmCode.getAttribute('infoCode') ?? '';
-    final icv = dmCode.getAttribute('infoCodeVariant') ?? '';
-    final ilc = dmCode.getAttribute('itemLocationCode') ?? '';
-
-    final issueInfo =
-        dmRefIdent?.findElements('issueInfo').firstOrNull ?? dmRef.findAllElements('issueInfo').firstOrNull;
-    final issueNumber = issueInfo?.getAttribute('issueNumber') ?? '001';
-    final inWork = issueInfo?.getAttribute('inWork') ?? '00';
-
-    final language = dmRefIdent?.findElements('language').firstOrNull ?? dmRef.findAllElements('language').firstOrNull;
-    final langIso = language?.getAttribute('languageIsoCode') ?? 'ru';
-    final countryIso = language?.getAttribute('countryIsoCode') ?? 'RU';
-
-    return 'DMC-$model-$sdc-$sc-$ssc$sssc-$ac-$dc$dcv-$ic$icv-${ilc}_$issueNumber-${inWork}_$langIso-$countryIso.XML';
   }
 
   // Универсальное открытие файла (Web + Desktop)
@@ -146,12 +144,7 @@ class PmDmRefWidget extends StatelessWidget {
         if (context.mounted) {
           context.push(
             '/xml_viewer',
-            extra: {
-              'fileTitle': fileTitle,
-              'xmlContent': content,
-              'fileName': platformFile.name,
-              'filePath': null,
-            },
+            extra: {'fileTitle': fileTitle, 'xmlContent': content, 'fileName': platformFile.name, 'filePath': null},
           );
         }
       }

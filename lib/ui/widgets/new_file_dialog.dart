@@ -10,6 +10,11 @@ class NewFileDialog extends StatefulWidget {
   final String initialInfoCode;
   final String initialInfoCodeVariant;
   final String initialInfoName;
+  final String initialLanguageIsoCode;
+  final String initialLanguageCountryIsoCode;
+  final String initialIssueNumber;
+  final String initialInWork;
+  final String modelIdentCode;
   final bool Function(String sysCode, String infoCode, String variant) isFileExists;
 
   const NewFileDialog({
@@ -20,6 +25,11 @@ class NewFileDialog extends StatefulWidget {
     required this.initialInfoCode,
     required this.initialInfoCodeVariant,
     required this.initialInfoName,
+    required this.initialLanguageIsoCode,
+    required this.initialLanguageCountryIsoCode,
+    this.initialIssueNumber = '001',
+    this.initialInWork = '00',
+    required this.modelIdentCode,
     required this.isFileExists,
   });
 
@@ -32,7 +42,11 @@ class _NewFileDialogState extends State<NewFileDialog> {
   late TextEditingController infoCodeCtrl;
   late TextEditingController infoCodeVarCtrl;
   late TextEditingController infoNameCtrl;
-  
+  late TextEditingController languageIsoCodeCtrl;
+  late TextEditingController languageCountryIsoCodeCtrl;
+  late TextEditingController issueNumberCtrl;
+  late TextEditingController inWorkCtrl;
+
   final GlobalKey<FileSettingsFormState> _formKey = GlobalKey<FileSettingsFormState>();
   bool _isValid = false;
 
@@ -43,6 +57,10 @@ class _NewFileDialogState extends State<NewFileDialog> {
     infoCodeCtrl = TextEditingController(text: widget.initialInfoCode);
     infoCodeVarCtrl = TextEditingController(text: widget.initialInfoCodeVariant);
     infoNameCtrl = TextEditingController(text: widget.initialInfoName);
+    languageIsoCodeCtrl = TextEditingController(text: widget.initialLanguageIsoCode);
+    languageCountryIsoCodeCtrl = TextEditingController(text: widget.initialLanguageCountryIsoCode);
+    issueNumberCtrl = TextEditingController(text: widget.initialIssueNumber);
+    inWorkCtrl = TextEditingController(text: widget.initialInWork);
   }
 
   void _onValidationChanged() {
@@ -60,6 +78,10 @@ class _NewFileDialogState extends State<NewFileDialog> {
     infoCodeCtrl.dispose();
     infoCodeVarCtrl.dispose();
     infoNameCtrl.dispose();
+    languageIsoCodeCtrl.dispose();
+    languageCountryIsoCodeCtrl.dispose();
+    issueNumberCtrl.dispose();
+    inWorkCtrl.dispose();
     super.dispose();
   }
 
@@ -75,6 +97,11 @@ class _NewFileDialogState extends State<NewFileDialog> {
           infoCodeCtrl: infoCodeCtrl,
           infoCodeVarCtrl: infoCodeVarCtrl,
           infoNameCtrl: infoNameCtrl,
+          languageIsoCodeCtrl: languageIsoCodeCtrl,
+          languageCountryIsoCodeCtrl: languageCountryIsoCodeCtrl,
+          issueNumberCtrl: issueNumberCtrl,
+          inWorkCtrl: inWorkCtrl,
+          modelIdentCode: widget.modelIdentCode,
           isFileExists: widget.isFileExists,
           onValidationChanged: _onValidationChanged,
         ),
@@ -93,6 +120,10 @@ class _NewFileDialogState extends State<NewFileDialog> {
                     'infoCode': infoCodeCtrl.text.trim(),
                     'infoCodeVar': infoCodeVarCtrl.text.trim().toUpperCase(),
                     'infoName': infoNameCtrl.text.trim(),
+                    'languageIsoCode': languageIsoCodeCtrl.text.trim().toLowerCase(),
+                    'languageCountryIsoCode': languageCountryIsoCodeCtrl.text.trim().toUpperCase(),
+                    'issueNumber': issueNumberCtrl.text.trim(),
+                    'inWork': inWorkCtrl.text.trim(),
                   });
                 },
           style: ElevatedButton.styleFrom(
@@ -107,4 +138,3 @@ class _NewFileDialogState extends State<NewFileDialog> {
     );
   }
 }
-

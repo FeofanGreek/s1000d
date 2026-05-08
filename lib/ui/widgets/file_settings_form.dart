@@ -8,6 +8,11 @@ class FileSettingsForm extends StatefulWidget {
   final TextEditingController infoCodeCtrl;
   final TextEditingController infoCodeVarCtrl;
   final TextEditingController infoNameCtrl;
+  final TextEditingController languageIsoCodeCtrl;
+  final TextEditingController languageCountryIsoCodeCtrl;
+  final TextEditingController issueNumberCtrl;
+  final TextEditingController inWorkCtrl;
+  final String modelIdentCode;
   final bool Function(String sysCode, String infoCode, String variant) isFileExists;
   final VoidCallback onValidationChanged;
 
@@ -17,6 +22,11 @@ class FileSettingsForm extends StatefulWidget {
     required this.infoCodeCtrl,
     required this.infoCodeVarCtrl,
     required this.infoNameCtrl,
+    required this.languageIsoCodeCtrl,
+    required this.languageCountryIsoCodeCtrl,
+    required this.issueNumberCtrl,
+    required this.inWorkCtrl,
+    required this.modelIdentCode,
     required this.isFileExists,
     required this.onValidationChanged,
   });
@@ -45,17 +55,48 @@ class FileSettingsFormState extends State<FileSettingsForm> {
   void initState() {
     super.initState();
     widget.sysCodeCtrl.addListener(_validate);
+    widget.infoCodeCtrl.addListener(_validate);
     widget.infoCodeVarCtrl.addListener(_validate);
     widget.infoNameCtrl.addListener(_validate);
+    widget.languageIsoCodeCtrl.addListener(_validate);
+    widget.languageCountryIsoCodeCtrl.addListener(_validate);
+    widget.issueNumberCtrl.addListener(_validate);
+    widget.inWorkCtrl.addListener(_validate);
     _validate();
   }
 
   @override
   void dispose() {
     widget.sysCodeCtrl.removeListener(_validate);
+    widget.infoCodeCtrl.removeListener(_validate);
     widget.infoCodeVarCtrl.removeListener(_validate);
     widget.infoNameCtrl.removeListener(_validate);
+    widget.languageIsoCodeCtrl.removeListener(_validate);
+    widget.languageCountryIsoCodeCtrl.removeListener(_validate);
+    widget.issueNumberCtrl.removeListener(_validate);
+    widget.inWorkCtrl.removeListener(_validate);
     super.dispose();
+  }
+
+  String _buildPreviewFileName() {
+    final sysCode = widget.sysCodeCtrl.text.trim().toUpperCase();
+    final infoCode = widget.infoCodeCtrl.text.trim();
+    final variant = widget.infoCodeVarCtrl.text.trim().toUpperCase();
+    final langIso = widget.languageIsoCodeCtrl.text.trim().toLowerCase();
+    final countryIso = widget.languageCountryIsoCodeCtrl.text.trim().toUpperCase();
+    final issueNum = widget.issueNumberCtrl.text.trim();
+    final inWork = widget.inWorkCtrl.text.trim();
+
+    // Default values for missing parts
+    final sc = sysCode.isEmpty ? '???' : sysCode;
+    final ic = infoCode.isEmpty ? '???' : infoCode;
+    final iv = variant.isEmpty ? '?' : variant;
+    final ln = langIso.isEmpty ? '??' : langIso;
+    final cn = countryIso.isEmpty ? '??' : countryIso;
+    final isN = issueNum.isEmpty ? '???' : issueNum;
+    final iw = inWork.isEmpty ? '??' : inWork;
+
+    return 'DMC-${widget.modelIdentCode}-AAA-$sc-00-00-00AA-$ic$iv-A_${isN}-${iw}_$ln-$cn.XML';
   }
 
   void _validate() {
@@ -90,14 +131,15 @@ class FileSettingsFormState extends State<FileSettingsForm> {
       }
     }
 
-    if (newExists != exists || helperText != _infoCodeHelperText || helperColor != _infoCodeHelperColor) {
+    if (newExists != exists || helperText != _infoCodeHelperText || helperColor != _infoCodeHelperColor || true) {
+      // Всегда вызываем setState для обновления предпросмотра имени файла
       setState(() {
         exists = newExists;
         _infoCodeHelperText = helperText;
         _infoCodeHelperColor = helperColor;
       });
     }
-    
+
     // Уведомляем родителя, что состояние валидации могло измениться
     widget.onValidationChanged();
   }
@@ -164,6 +206,85 @@ class FileSettingsFormState extends State<FileSettingsForm> {
         ),
         const SizedBox(height: 16),
         DialogField(controller: widget.infoNameCtrl, label: 'Название документа (Title)'),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: DialogField(
+                controller: widget.languageIsoCodeCtrl,
+                label: 'Language ISO',
+                maxLength: 2,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z]')),
+                  TextInputFormatter.withFunction(
+                    (oldValue, newValue) => newValue.copyWith(text: newValue.text.toLowerCase()),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: DialogField(
+                controller: widget.languageCountryIsoCodeCtrl,
+                label: 'Country ISO',
+                maxLength: 2,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z]')),
+                  TextInputFormatter.withFunction(
+                    (oldValue, newValue) => newValue.copyWith(text: newValue.text.toUpperCase()),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: DialogField(
+                controller: widget.issueNumberCtrl,
+                label: 'Issue Number',
+                maxLength: 3,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: DialogField(
+                controller: widget.inWorkCtrl,
+                label: 'In Work',
+                maxLength: 2,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: QRHColors.accentBg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: QRHColors.borderColor),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Имя файла:', style: TextStyle(color: QRHColors.textTertiary, fontSize: 11)),
+              const SizedBox(height: 4),
+              Text(
+                _buildPreviewFileName(),
+                style: const TextStyle(
+                  color: QRHColors.info,
+                  fontSize: 13,
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }

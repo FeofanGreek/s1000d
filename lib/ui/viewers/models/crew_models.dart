@@ -99,6 +99,24 @@ class CrewFigure extends CrewItem {
   });
 }
 
+class CrewTable extends CrewItem {
+  String title;
+  final XmlElement stepNode;
+  final XmlElement tableNode;
+  final XmlElement? titleNode;
+  final List<List<String>> rows; // Simple matrix for now
+  final List<String> header;
+
+  CrewTable({
+    required this.title,
+    required this.stepNode,
+    required this.tableNode,
+    this.titleNode,
+    required this.rows,
+    required this.header,
+  });
+}
+
 class CrewCaseItem {
   String conditionText;
   String stepText;

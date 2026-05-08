@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:xml/xml.dart';
 import 'package:go_router/go_router.dart';
+import '../utils/s1000d_utils.dart';
 import '../styles.dart';
 import '../ui/viewers/models/crew_models.dart';
 import 'app_controller.dart';
@@ -22,8 +23,190 @@ class CrewViewerController extends ChangeNotifier {
   bool isEditMode = false;
   bool hasChanges = false;
 
+  Set<String> _missingLanguages = {};
+  Set<String> get missingLanguages => _missingLanguages;
+
+  Map<String, String> _structuralMismatches = {}; // language -> difference description
+  Map<String, String> get structuralMismatches => _structuralMismatches;
+
   CrewViewerController({required this.document, required this.fileName, this.filePath, this.fileTitle}) {
     parseCrewData();
+  }
+
+  void checkMultilingualCompleteness(AppController appController) {
+    if (appController.workDir == null) return;
+
+    final workDir = appController.workDir!;
+    final files = workDir.listSync().whereType<File>().where((f) => f.path.toLowerCase().endsWith('.xml'));
+
+    final projectLanguages = <String>{};
+    final dmIdent = document.findAllElements('dmIdent').firstOrNull;
+    if (dmIdent == null) return;
+
+    final currentBasePrefix = _getDmBasePrefix(dmIdent);
+    final existingLangsForThisFile = <String>{};
+
+    for (final file in files) {
+      final name = file.path.split(Platform.pathSeparator).last;
+      if (!name.toUpperCase().startsWith('DMC-')) continue;
+
+      // Extract language from filename: DMC-xxx_xxx-xx_ru-RU.XML
+      final langMatch = RegExp(r'_([a-z]{2})-([A-Z]{2})\.XML$', caseSensitive: false).firstMatch(name);
+      if (langMatch != null) {
+        final lang = langMatch.group(1)!.toLowerCase();
+        final country = langMatch.group(2)!.toUpperCase();
+        projectLanguages.add('$lang-$country');
+
+        // Check if this file is a variant of our current file
+        if (name.toUpperCase().startsWith(currentBasePrefix.toUpperCase())) {
+          existingLangsForThisFile.add('$lang-$country');
+        }
+      }
+    }
+
+    final missing = projectLanguages.difference(existingLangsForThisFile);
+    if (missing.length != _missingLanguages.length || !missing.containsAll(_missingLanguages)) {
+      _missingLanguages = missing;
+      notifyListeners();
+    }
+
+    _checkStructuralConsistency(appController, currentBasePrefix);
+  }
+
+  void _checkStructuralConsistency(AppController appController, String currentBasePrefix) {
+    if (appController.workDir == null) return;
+
+    final workDir = appController.workDir!;
+    final files = workDir.listSync().whereType<File>().where((f) => f.path.toLowerCase().endsWith('.xml'));
+
+    final currentStructure = _getStructuralFingerprint(document.rootElement);
+    final newMismatches = <String, String>{};
+
+    for (final file in files) {
+      final name = file.path.split(Platform.pathSeparator).last;
+      if (!name.toUpperCase().startsWith(currentBasePrefix.toUpperCase()) ||
+          name.toUpperCase() == fileName.toUpperCase())
+        continue;
+
+      final langMatch = RegExp(r'_([a-z]{2})-([A-Z]{2})\.XML$', caseSensitive: false).firstMatch(name);
+      if (langMatch == null) continue;
+      final langTag = '${langMatch.group(1)!.toLowerCase()}-${langMatch.group(2)!.toUpperCase()}';
+
+      try {
+        final otherDoc = XmlDocument.parse(file.readAsStringSync());
+        final otherStructure = _getStructuralFingerprint(otherDoc.rootElement);
+
+        if (currentStructure != otherStructure) {
+          newMismatches[langTag] = _compareStructures(currentStructure, otherStructure);
+        }
+      } catch (e) {
+        debugPrint('Error parsing $name for structural check: $e');
+      }
+    }
+
+    if (newMismatches.length != _structuralMismatches.length) {
+      _structuralMismatches = newMismatches;
+      notifyListeners();
+    }
+  }
+
+  String _getStructuralFingerprint(XmlElement element) {
+    final buffer = StringBuffer();
+    _buildFingerprint(element, buffer);
+    return buffer.toString();
+  }
+
+  void _buildFingerprint(XmlElement element, StringBuffer buffer) {
+    // Пропускаем тег language, так как его атрибуты всегда разные
+    if (element.name.local == 'language') return;
+
+    buffer.write(element.name.local);
+
+    // Для шагов чеклиста важно наличие ролей
+    if (element.name.local == 'crewMember') {
+      final type = element.getAttribute('crewMemberType');
+      if (type != null) buffer.write('[$type]');
+    }
+
+    buffer.write('(');
+    final children = element.children.whereType<XmlElement>().toList();
+    for (int i = 0; i < children.length; i++) {
+      _buildFingerprint(children[i], buffer);
+      if (i < children.length - 1 && children[i + 1].name.local != 'language') {
+        buffer.write(',');
+      }
+    }
+    buffer.write(')');
+  }
+
+  String _compareStructures(String current, String other) {
+    // В будущем здесь можно реализовать более детальный diff
+    return 'Набор элементов или их порядок отличается от текущего файла. Переводы могут быть несинхронизированы.';
+  }
+
+  String _getDmBasePrefix(XmlElement ident) {
+    final dmCode = ident.findElements('dmCode').firstOrNull ?? ident.findAllElements('dmCode').firstOrNull;
+    if (dmCode == null) return '';
+
+    final model = dmCode.getAttribute('modelIdentCode') ?? '';
+    final sdc = dmCode.getAttribute('systemDiffCode') ?? '';
+    final sc = dmCode.getAttribute('systemCode') ?? '';
+    final ssc = dmCode.getAttribute('subSystemCode') ?? '';
+    final sssc = dmCode.getAttribute('subSubSystemCode') ?? '';
+    final ac = dmCode.getAttribute('assyCode') ?? '';
+    final dc = dmCode.getAttribute('disassyCode') ?? '';
+    final dcv = dmCode.getAttribute('disassyCodeVariant') ?? '';
+    final ic = dmCode.getAttribute('infoCode') ?? '';
+    final icv = dmCode.getAttribute('infoCodeVariant') ?? '';
+    final ilc = dmCode.getAttribute('itemLocationCode') ?? '';
+
+    return 'DMC-$model-$sdc-$sc-$ssc$sssc-$ac-$dc$dcv-$ic$icv-$ilc';
+  }
+
+  Future<void> addMissingLanguages(BuildContext context, AppController appController) async {
+    if (_missingLanguages.isEmpty || filePath == null) return;
+
+    final workDirPath = appController.workDir?.path;
+    if (workDirPath == null) return;
+
+    try {
+      final sourceDoc = document.copy();
+
+      for (final langTag in _missingLanguages) {
+        final parts = langTag.split('-');
+        final langIso = parts[0];
+        final countryIso = parts[1];
+
+        final newDoc = sourceDoc.copy();
+        final dmIdent = newDoc.findAllElements('dmIdent').firstOrNull;
+        if (dmIdent != null) {
+          final langNode = dmIdent.findElements('language').firstOrNull;
+          if (langNode != null) {
+            langNode.setAttribute('languageIsoCode', langIso);
+            langNode.setAttribute('countryIsoCode', countryIso);
+          }
+
+          final newPrefix = S1000DUtils.buildDmcPrefixFromIdent(dmIdent);
+          final newFile = File('$workDirPath/$newPrefix');
+          await newFile.writeAsString(newDoc.toXmlString(pretty: true, indent: '  '));
+        }
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Добавлено копий: ${_missingLanguages.length}'), backgroundColor: QRHColors.success),
+        );
+        _missingLanguages = {};
+        notifyListeners();
+        await appController.openOrGenerateTOC(context, true);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка при создании копий: $e'), backgroundColor: QRHColors.danger));
+      }
+    }
   }
 
   void toggleEditMode(bool value) {
@@ -185,6 +368,50 @@ class CrewViewerController extends ChangeNotifier {
           }
         }
 
+        // Проверка на таблицу
+        final tableNode = step.findElements('table').firstOrNull;
+        if (tableNode != null) {
+          final tgroup = tableNode.findElements('tgroup').firstOrNull;
+          if (tgroup != null) {
+            final titleNode = tableNode.findElements('title').firstOrNull;
+            final thead = tgroup.findElements('thead').firstOrNull;
+            final tbody = tgroup.findElements('tbody').firstOrNull;
+
+            final header = <String>[];
+            if (thead != null) {
+              final row = thead.findElements('row').firstOrNull;
+              if (row != null) {
+                for (var entry in row.findElements('entry')) {
+                  header.add(cleanText(entry.innerText));
+                }
+              }
+            }
+
+            final rows = <List<String>>[];
+            if (tbody != null) {
+              for (var row in tbody.findElements('row')) {
+                final cells = <String>[];
+                for (var entry in row.findElements('entry')) {
+                  cells.add(cleanText(entry.innerText));
+                }
+                rows.add(cells);
+              }
+            }
+
+            items.add(
+              CrewTable(
+                title: cleanText(titleNode?.innerText ?? ''),
+                stepNode: step,
+                tableNode: tableNode,
+                titleNode: titleNode,
+                header: header,
+                rows: rows,
+              ),
+            );
+            continue;
+          }
+        }
+
         final cr = step.findAllElements('challengeAndResponse').firstOrNull;
 
         if (cr != null) {
@@ -336,6 +563,14 @@ class CrewViewerController extends ChangeNotifier {
     final currentInfoCode = dmCodeNode?.getAttribute('infoCode') ?? '';
     final currentVariant = dmCodeNode?.getAttribute('infoCodeVariant') ?? 'A';
 
+    final issueInfoNode = document.findAllElements('issueInfo').firstOrNull;
+    final currentIssueNumber = issueInfoNode?.getAttribute('issueNumber') ?? '001';
+    final currentInWork = issueInfoNode?.getAttribute('inWork') ?? '00';
+
+    final languageNode = document.findAllElements('language').firstOrNull;
+    final currentLanguageIsoCode = languageNode?.getAttribute('languageIsoCode') ?? 'ru';
+    final currentLanguageCountryIsoCode = languageNode?.getAttribute('countryIsoCode') ?? 'RU';
+
     final titleNode = document.findAllElements('infoName').firstOrNull;
     final currentTitle = titleNode?.innerText ?? '';
 
@@ -343,6 +578,10 @@ class CrewViewerController extends ChangeNotifier {
     final infoCodeCtrl = TextEditingController(text: currentInfoCode);
     final infoCodeVarCtrl = TextEditingController(text: currentVariant);
     final infoNameCtrl = TextEditingController(text: currentTitle);
+    final languageIsoCodeCtrl = TextEditingController(text: currentLanguageIsoCode);
+    final languageCountryIsoCodeCtrl = TextEditingController(text: currentLanguageCountryIsoCode);
+    final issueNumberCtrl = TextEditingController(text: currentIssueNumber);
+    final inWorkCtrl = TextEditingController(text: currentInWork);
 
     final formKey = GlobalKey<FileSettingsFormState>();
     bool isValid = true; // initially true because we open an existing valid file
@@ -370,6 +609,11 @@ class CrewViewerController extends ChangeNotifier {
                   infoCodeCtrl: infoCodeCtrl,
                   infoCodeVarCtrl: infoCodeVarCtrl,
                   infoNameCtrl: infoNameCtrl,
+                  languageIsoCodeCtrl: languageIsoCodeCtrl,
+                  languageCountryIsoCodeCtrl: languageCountryIsoCodeCtrl,
+                  issueNumberCtrl: issueNumberCtrl,
+                  inWorkCtrl: inWorkCtrl,
+                  modelIdentCode: appCtrl.modelIdentCode,
                   isFileExists: (sys, info, varCode) {
                     if (sys == currentSysCode && info == currentInfoCode && varCode == currentVariant) {
                       return false;
@@ -393,6 +637,10 @@ class CrewViewerController extends ChangeNotifier {
                             'infoCode': infoCodeCtrl.text.trim(),
                             'infoCodeVar': infoCodeVarCtrl.text.trim().toUpperCase(),
                             'infoName': infoNameCtrl.text.trim(),
+                            'languageIsoCode': languageIsoCodeCtrl.text.trim().toLowerCase(),
+                            'languageCountryIsoCode': languageCountryIsoCodeCtrl.text.trim().toUpperCase(),
+                            'issueNumber': issueNumberCtrl.text.trim(),
+                            'inWork': inWorkCtrl.text.trim(),
                           });
                         },
                   style: ElevatedButton.styleFrom(
@@ -415,6 +663,10 @@ class CrewViewerController extends ChangeNotifier {
       final newInfoCode = result['infoCode']!;
       final newVariant = result['infoCodeVar']!;
       final newInfoName = result['infoName']!;
+      final newLanguageIsoCode = result['languageIsoCode']!;
+      final newLanguageCountryIsoCode = result['languageCountryIsoCode']!;
+      final newIssueNumber = result['issueNumber']!;
+      final newInWork = result['inWork']!;
 
       bool xmlChanged = false;
 
@@ -429,6 +681,28 @@ class CrewViewerController extends ChangeNotifier {
         }
         if (currentVariant != newVariant) {
           dmCodeNode.setAttribute('infoCodeVariant', newVariant);
+          xmlChanged = true;
+        }
+      }
+
+      if (languageNode != null) {
+        if (currentLanguageIsoCode != newLanguageIsoCode) {
+          languageNode.setAttribute('languageIsoCode', newLanguageIsoCode);
+          xmlChanged = true;
+        }
+        if (currentLanguageCountryIsoCode != newLanguageCountryIsoCode) {
+          languageNode.setAttribute('countryIsoCode', newLanguageCountryIsoCode);
+          xmlChanged = true;
+        }
+      }
+
+      if (issueInfoNode != null) {
+        if (currentIssueNumber != newIssueNumber) {
+          issueInfoNode.setAttribute('issueNumber', newIssueNumber);
+          xmlChanged = true;
+        }
+        if (currentInWork != newInWork) {
+          issueInfoNode.setAttribute('inWork', newInWork);
           xmlChanged = true;
         }
       }
@@ -456,8 +730,14 @@ class CrewViewerController extends ChangeNotifier {
 
         if (filePath != null && !kIsWeb) {
           try {
-            // Check if dmCode actually changed. If yes, calculate new file name and rename.
-            if (currentSysCode != newSysCode || currentInfoCode != newInfoCode || currentVariant != newVariant) {
+            // Check if dmCode, language or issueInfo actually changed. If yes, calculate new file name and rename.
+            if (currentSysCode != newSysCode ||
+                currentInfoCode != newInfoCode ||
+                currentVariant != newVariant ||
+                currentLanguageIsoCode != newLanguageIsoCode ||
+                currentLanguageCountryIsoCode != newLanguageCountryIsoCode ||
+                currentIssueNumber != newIssueNumber ||
+                currentInWork != newInWork) {
               final oldFile = File(filePath!);
               final params = appCtrl.createChecklistParams(
                 infoName: newInfoName,
@@ -465,6 +745,10 @@ class CrewViewerController extends ChangeNotifier {
                 infoCode: newInfoCode,
                 infoCodeVariant: newVariant,
                 systemDiffCode: 'AAA', // Assuming crew diff code
+                languageIsoCode: newLanguageIsoCode,
+                languageCountryIsoCode: newLanguageCountryIsoCode,
+                issueNumber: newIssueNumber,
+                inWork: newInWork,
               );
 
               final newFileName = params.getFileName();
@@ -715,6 +999,12 @@ class CrewViewerController extends ChangeNotifier {
         drill.parent?.children.remove(drill);
       }
     } else if (item is CrewFigure) {
+      final drill = item.stepNode.parentElement;
+      item.stepNode.parent?.children.remove(item.stepNode);
+      if (drill != null && drill.findElements('crewDrillStep').isEmpty && drill.findElements('title').isEmpty) {
+        drill.parent?.children.remove(drill);
+      }
+    } else if (item is CrewTable) {
       final drill = item.stepNode.parentElement;
       item.stepNode.parent?.children.remove(item.stepNode);
       if (drill != null && drill.findElements('crewDrillStep').isEmpty && drill.findElements('title').isEmpty) {
@@ -1256,6 +1546,277 @@ class CrewViewerController extends ChangeNotifier {
           context,
         ).showSnackBar(SnackBar(content: Text('Ошибка вставки изображения: $e'), backgroundColor: QRHColors.danger));
       }
+    }
+  }
+
+  void addTable(VoidCallback onAdded) {
+    isEditMode = true;
+    final drills = document.findAllElements('crewDrill');
+    XmlElement? parentNode;
+    if (drills.isNotEmpty) {
+      parentNode = drills.last.parentElement;
+    } else {
+      parentNode =
+          document.findAllElements('crewRefCard').firstOrNull ??
+          document.findAllElements('crew').firstOrNull ??
+          document.rootElement;
+    }
+
+    if (parentNode != null) {
+      final newDrill = XmlElement(XmlName('crewDrill'));
+      final newStep = XmlElement(XmlName('crewDrillStep'));
+
+      final builder = XmlBuilder();
+      builder.element(
+        'table',
+        attributes: {'frame': 'topbot'},
+        nest: () {
+          builder.element('title', nest: 'Новая таблица');
+          builder.element(
+            'tgroup',
+            attributes: {'cols': '2'},
+            nest: () {
+              builder.element('colspec', attributes: {'colnum': '1', 'colname': 'col1', 'colwidth': '1*'});
+              builder.element('colspec', attributes: {'colnum': '2', 'colname': 'col2', 'colwidth': '1*'});
+              builder.element(
+                'thead',
+                nest: () {
+                  builder.element(
+                    'row',
+                    attributes: {'rowsep': '1'},
+                    nest: () {
+                      builder.element(
+                        'entry',
+                        attributes: {'colname': 'col1'},
+                        nest: () {
+                          builder.element('para', nest: 'Заголовок 1');
+                        },
+                      );
+                      builder.element(
+                        'entry',
+                        attributes: {'colname': 'col2'},
+                        nest: () {
+                          builder.element('para', nest: 'Заголовок 2');
+                        },
+                      );
+                    },
+                  );
+                },
+              );
+              builder.element(
+                'tbody',
+                nest: () {
+                  builder.element(
+                    'row',
+                    nest: () {
+                      builder.element(
+                        'entry',
+                        attributes: {'colname': 'col1'},
+                        nest: () {
+                          builder.element('para', nest: 'Ячейка 1-1');
+                        },
+                      );
+                      builder.element(
+                        'entry',
+                        attributes: {'colname': 'col2'},
+                        nest: () {
+                          builder.element('para', nest: 'Ячейка 1-2');
+                        },
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          );
+        },
+      );
+
+      newStep.children.add(builder.buildDocument().rootElement.copy());
+      newDrill.children.add(newStep);
+      parentNode.children.add(newDrill);
+
+      hasChanges = true;
+      parseCrewData();
+      onAdded();
+    }
+  }
+
+  void updateTableTitle(CrewTable item, String newTitle) {
+    item.title = newTitle;
+    updateXmlNodeText(item.titleNode, newTitle);
+  }
+
+  void updateTableCell(CrewTable item, int rowIndex, int colIndex, String value, {bool isHeader = false}) {
+    final tgroup = item.tableNode.findElements('tgroup').firstOrNull;
+    if (tgroup == null) return;
+
+    if (isHeader) {
+      final thead = tgroup.findElements('thead').firstOrNull;
+      final row = thead?.findElements('row').firstOrNull;
+      if (row != null) {
+        final entries = row.findElements('entry').toList();
+        if (colIndex < entries.length) {
+          updateXmlNodeText(entries[colIndex], value);
+          item.header[colIndex] = value;
+        }
+      }
+    } else {
+      final tbody = tgroup.findElements('tbody').firstOrNull;
+      if (tbody != null) {
+        final row = tbody.findElements('row').elementAtOrNull(rowIndex);
+        if (row != null) {
+          final entries = row.findElements('entry').toList();
+          if (colIndex < entries.length) {
+            updateXmlNodeText(entries[colIndex], value);
+            item.rows[rowIndex][colIndex] = value;
+          }
+        }
+      }
+    }
+    hasChanges = true;
+    notifyListeners();
+  }
+
+  void addTableRow(CrewTable item) {
+    final tgroup = item.tableNode.findElements('tgroup').firstOrNull;
+    final tbody = tgroup?.findElements('tbody').firstOrNull;
+    if (tbody != null) {
+      final cols = int.tryParse(tgroup?.getAttribute('cols') ?? '0') ?? 0;
+      final newRow = XmlElement(XmlName('row'));
+      final newRowData = <String>[];
+      for (int i = 1; i <= cols; i++) {
+        newRow.children.add(
+          XmlElement(
+            XmlName('entry'),
+            [XmlAttribute(XmlName('colname'), 'col$i')],
+            [
+              XmlElement(XmlName('para'), [], [XmlText('Новая ячейка')]),
+            ],
+          ),
+        );
+        newRowData.add('Новая ячейка');
+      }
+      tbody.children.add(newRow);
+      item.rows.add(newRowData);
+      hasChanges = true;
+      notifyListeners();
+    }
+  }
+
+  void removeTableRow(CrewTable item, int index) {
+    final tgroup = item.tableNode.findElements('tgroup').firstOrNull;
+    final tbody = tgroup?.findElements('tbody').firstOrNull;
+    if (tbody != null) {
+      final rows = tbody.findElements('row').toList();
+      if (index < rows.length) {
+        tbody.children.remove(rows[index]);
+        item.rows.removeAt(index);
+        hasChanges = true;
+        notifyListeners();
+      }
+    }
+  }
+
+  void addTableColumn(CrewTable item) {
+    final tgroup = item.tableNode.findElements('tgroup').firstOrNull;
+    if (tgroup != null) {
+      final oldCols = int.tryParse(tgroup.getAttribute('cols') ?? '0') ?? 0;
+      final newCols = oldCols + 1;
+      tgroup.setAttribute('cols', newCols.toString());
+
+      // Add colspec
+      final lastColspec = tgroup.findElements('colspec').lastOrNull;
+      final newColspec = XmlElement(XmlName('colspec'), [
+        XmlAttribute(XmlName('colnum'), newCols.toString()),
+        XmlAttribute(XmlName('colname'), 'col$newCols'),
+        XmlAttribute(XmlName('colwidth'), '1*'),
+      ]);
+      if (lastColspec != null) {
+        final index = tgroup.children.indexOf(lastColspec);
+        tgroup.children.insert(index + 1, newColspec);
+      }
+
+      // Update header
+      final thead = tgroup.findElements('thead').firstOrNull;
+      final headRow = thead?.findElements('row').firstOrNull;
+      if (headRow != null) {
+        headRow.children.add(
+          XmlElement(
+            XmlName('entry'),
+            [XmlAttribute(XmlName('colname'), 'col$newCols')],
+            [
+              XmlElement(XmlName('para'), [], [XmlText('Заголовок $newCols')]),
+            ],
+          ),
+        );
+        item.header.add('Заголовок $newCols');
+      }
+
+      // Update body rows
+      final tbody = tgroup.findElements('tbody').firstOrNull;
+      if (tbody != null) {
+        final bodyRows = tbody.findElements('row').toList();
+        for (int i = 0; i < bodyRows.length; i++) {
+          bodyRows[i].children.add(
+            XmlElement(
+              XmlName('entry'),
+              [XmlAttribute(XmlName('colname'), 'col$newCols')],
+              [
+                XmlElement(XmlName('para'), [], [XmlText('Ячейка')]),
+              ],
+            ),
+          );
+          item.rows[i].add('Ячейка');
+        }
+      }
+
+      hasChanges = true;
+      notifyListeners();
+    }
+  }
+
+  void removeTableColumn(CrewTable item, int index) {
+    final tgroup = item.tableNode.findElements('tgroup').firstOrNull;
+    if (tgroup != null) {
+      final oldCols = int.tryParse(tgroup.getAttribute('cols') ?? '0') ?? 0;
+      if (oldCols <= 1) return; // Don't remove last column
+
+      final newCols = oldCols - 1;
+      tgroup.setAttribute('cols', newCols.toString());
+
+      // Remove colspec
+      final colspecs = tgroup.findElements('colspec').toList();
+      if (index < colspecs.length) {
+        tgroup.children.remove(colspecs[index]);
+      }
+
+      // Remove from header
+      final thead = tgroup.findElements('thead').firstOrNull;
+      final headRow = thead?.findElements('row').firstOrNull;
+      if (headRow != null) {
+        final entries = headRow.findElements('entry').toList();
+        if (index < entries.length) {
+          headRow.children.remove(entries[index]);
+          item.header.removeAt(index);
+        }
+      }
+
+      // Remove from body rows
+      final tbody = tgroup.findElements('tbody').firstOrNull;
+      if (tbody != null) {
+        final bodyRows = tbody.findElements('row').toList();
+        for (int i = 0; i < bodyRows.length; i++) {
+          final entries = bodyRows[i].findElements('entry').toList();
+          if (index < entries.length) {
+            bodyRows[i].children.remove(entries[index]);
+            item.rows[i].removeAt(index);
+          }
+        }
+      }
+
+      hasChanges = true;
+      notifyListeners();
     }
   }
 

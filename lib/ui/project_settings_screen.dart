@@ -14,8 +14,6 @@ class ProjectSettingsScreen extends StatefulWidget {
 
 class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
   late final TextEditingController modelIdentCodeCtrl;
-  late final TextEditingController languageIsoCodeCtrl;
-  late final TextEditingController languageCountryIsoCodeCtrl;
   late final TextEditingController techNameCtrl;
   late final TextEditingController partnerCodeCtrl;
   late final TextEditingController partnerNameCtrl;
@@ -31,8 +29,6 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
     super.initState();
     final controller = context.read<AppController>();
     modelIdentCodeCtrl = TextEditingController(text: controller.modelIdentCode);
-    languageIsoCodeCtrl = TextEditingController(text: controller.languageIsoCode);
-    languageCountryIsoCodeCtrl = TextEditingController(text: controller.languageCountryIsoCode);
     techNameCtrl = TextEditingController(text: controller.techName);
     partnerCodeCtrl = TextEditingController(text: controller.partnerCode);
     partnerNameCtrl = TextEditingController(text: controller.partnerName);
@@ -50,8 +46,6 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
     }
 
     modelIdentCodeCtrl.addListener(markChanged);
-    languageIsoCodeCtrl.addListener(markChanged);
-    languageCountryIsoCodeCtrl.addListener(markChanged);
     techNameCtrl.addListener(markChanged);
     partnerCodeCtrl.addListener(markChanged);
     partnerNameCtrl.addListener(markChanged);
@@ -64,8 +58,6 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
   @override
   void dispose() {
     modelIdentCodeCtrl.dispose();
-    languageIsoCodeCtrl.dispose();
-    languageCountryIsoCodeCtrl.dispose();
     techNameCtrl.dispose();
     partnerCodeCtrl.dispose();
     partnerNameCtrl.dispose();
@@ -78,13 +70,16 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
 
   Future<bool> _onWillPop() async {
     if (!_hasChanges) return true;
-    
+
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: QRHColors.secondaryBg,
         title: const Text('Несохраненные изменения', style: TextStyle(color: QRHColors.textPrimary)),
-        content: const Text('Вы хотите выйти без сохранения изменений?', style: TextStyle(color: QRHColors.textSecondary)),
+        content: const Text(
+          'Вы хотите выйти без сохранения изменений?',
+          style: TextStyle(color: QRHColors.textSecondary),
+        ),
         actions: [
           TextButton(
             onPressed: () => context.pop(false),
@@ -132,37 +127,40 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
             IconButton(
               icon: const Icon(Icons.save),
               tooltip: 'Сохранить',
-              onPressed: _hasChanges ? () async {
-                final appCtrl = context.read<AppController>();
-                appCtrl.modelIdentCode = modelIdentCodeCtrl.text;
-                appCtrl.languageIsoCode = languageIsoCodeCtrl.text;
-                appCtrl.languageCountryIsoCode = languageCountryIsoCodeCtrl.text;
-                appCtrl.techName = techNameCtrl.text;
-                appCtrl.partnerCode = partnerCodeCtrl.text;
-                appCtrl.partnerName = partnerNameCtrl.text;
-                appCtrl.dataDistribution = dataDistributionCtrl.text;
-                appCtrl.copyrightPara = copyrightParaCtrl.text;
-                appCtrl.brexInfoCode = brexInfoCodeCtrl.text;
-                appCtrl.brexLocation = brexLocationCtrl.text;
+              onPressed: _hasChanges
+                  ? () async {
+                      final appCtrl = context.read<AppController>();
+                      appCtrl.modelIdentCode = modelIdentCodeCtrl.text;
+                      appCtrl.techName = techNameCtrl.text;
+                      appCtrl.partnerCode = partnerCodeCtrl.text;
+                      appCtrl.partnerName = partnerNameCtrl.text;
+                      appCtrl.dataDistribution = dataDistributionCtrl.text;
+                      appCtrl.copyrightPara = copyrightParaCtrl.text;
+                      appCtrl.brexInfoCode = brexInfoCodeCtrl.text;
+                      appCtrl.brexLocation = brexLocationCtrl.text;
 
-                await appCtrl.saveProjectSettings();
-                await appCtrl.applyProjectSettingsToFiles();
-                
-                if (context.mounted) {
-                  await appCtrl.generateTOC(context, openViewer: false);
-                }
-                
-                setState(() {
-                  _hasChanges = false;
-                });
-                
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Настройки сохранены и применены к файлам'), backgroundColor: QRHColors.success),
-                  );
-                  context.pop();
-                }
-              } : null,
+                      await appCtrl.saveProjectSettings();
+                      await appCtrl.applyProjectSettingsToFiles();
+
+                      if (context.mounted) {
+                        await appCtrl.generateTOC(context, openViewer: false);
+                      }
+
+                      setState(() {
+                        _hasChanges = false;
+                      });
+
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Настройки сохранены и применены к файлам'),
+                            backgroundColor: QRHColors.success,
+                          ),
+                        );
+                        context.pop();
+                      }
+                    }
+                  : null,
             ),
           ],
         ),
@@ -170,8 +168,6 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
           padding: const EdgeInsets.all(16),
           child: ProjectSettingsForm(
             modelIdentCodeCtrl: modelIdentCodeCtrl,
-            languageIsoCodeCtrl: languageIsoCodeCtrl,
-            languageCountryIsoCodeCtrl: languageCountryIsoCodeCtrl,
             techNameCtrl: techNameCtrl,
             partnerCodeCtrl: partnerCodeCtrl,
             partnerNameCtrl: partnerNameCtrl,

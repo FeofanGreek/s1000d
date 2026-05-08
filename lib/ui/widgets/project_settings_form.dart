@@ -5,8 +5,6 @@ import 'dialog_field.dart';
 
 class ProjectSettingsForm extends StatelessWidget {
   final TextEditingController modelIdentCodeCtrl;
-  final TextEditingController languageIsoCodeCtrl;
-  final TextEditingController languageCountryIsoCodeCtrl;
   final TextEditingController techNameCtrl;
   final TextEditingController partnerCodeCtrl;
   final TextEditingController partnerNameCtrl;
@@ -18,8 +16,6 @@ class ProjectSettingsForm extends StatelessWidget {
   const ProjectSettingsForm({
     super.key,
     required this.modelIdentCodeCtrl,
-    required this.languageIsoCodeCtrl,
-    required this.languageCountryIsoCodeCtrl,
     required this.techNameCtrl,
     required this.partnerCodeCtrl,
     required this.partnerNameCtrl,
@@ -42,22 +38,6 @@ class ProjectSettingsForm extends StatelessWidget {
           regExpErrorText: 'Формат: 2-14 символов (A-Z, 0-9)',
           maxLength: 14,
           inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]'))],
-        ),
-        DialogField(
-          controller: languageIsoCodeCtrl,
-          label: 'Language ISO Code (e.g. ru)',
-          regExpPattern: RegExp(r'^[a-z]{2,3}$'),
-          regExpErrorText: 'Формат: 2-3 символа (a-z)',
-          maxLength: 3,
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-z]'))],
-        ),
-        DialogField(
-          controller: languageCountryIsoCodeCtrl,
-          label: 'Country ISO Code (e.g. RU)',
-          regExpPattern: RegExp(r'^[A-Z]{2}$'),
-          regExpErrorText: 'Формат: 2 символа (A-Z)',
-          maxLength: 2,
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[A-Z]'))],
         ),
         DialogField(controller: techNameCtrl, label: 'Tech Name', mdAbout: 'about_tech_name.md'),
         DialogField(controller: partnerCodeCtrl, label: 'Partner Code', mdAbout: 'about_parthner_code.md'),

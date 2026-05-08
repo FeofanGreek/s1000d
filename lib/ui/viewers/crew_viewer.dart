@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:xml/xml.dart';
 import 'package:go_router/go_router.dart';
 import '../../styles.dart';
+import '../../../controllers/app_controller.dart';
 import '../../../controllers/crew_viewer_controller.dart';
 import 'models/crew_models.dart';
 import 'widgets/crew_step_row.dart';
@@ -11,6 +12,7 @@ import 'widgets/crew_reference_row.dart';
 import 'widgets/crew_description_row.dart';
 import 'widgets/crew_condition_row.dart';
 import 'widgets/crew_figure_row.dart';
+import 'widgets/crew_table_row.dart';
 import 'widgets/crew_edit_tools_bar.dart';
 import '../../../utils/validator_helper.dart';
 
@@ -20,23 +22,13 @@ class CrewViewer extends StatelessWidget {
   final String? filePath;
   final String? fileTitle;
 
-  const CrewViewer({
-    super.key,
-    required this.document,
-    required this.fileName,
-    this.filePath,
-    required this.fileTitle,
-  });
+  const CrewViewer({super.key, required this.document, required this.fileName, this.filePath, required this.fileTitle});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => CrewViewerController(
-        document: document,
-        fileName: fileName,
-        filePath: filePath,
-        fileTitle: fileTitle,
-      ),
+      create: (_) =>
+          CrewViewerController(document: document, fileName: fileName, filePath: filePath, fileTitle: fileTitle),
       child: const _CrewViewerContent(),
     );
   }
@@ -51,6 +43,16 @@ class _CrewViewerContent extends StatefulWidget {
 
 class _CrewViewerContentState extends State<_CrewViewerContent> {
   final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final controller = context.read<CrewViewerController>();
+      final appController = context.read<AppController>();
+      controller.checkMultilingualCompleteness(appController);
+    });
+  }
 
   @override
   void dispose() {
@@ -75,10 +77,51 @@ class _CrewViewerContentState extends State<_CrewViewerContent> {
     });
   }
 
-  Future<void> _validateDocument(
-    BuildContext context,
-    CrewViewerController controller,
-  ) async {
+  void _showStructuralErrors(BuildContext context, CrewViewerController controller) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: QRHColors.secondaryBg,
+        title: const Text('Ошибки синхронизации структур', style: TextStyle(color: QRHColors.textPrimary)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: controller.structuralMismatches.entries.map((e) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Язык: ${e.key}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: QRHColors.info),
+                  ),
+                  Text(e.value, style: const TextStyle(color: QRHColors.textSecondary, fontSize: 14)),
+                  const Divider(color: QRHColors.dividerColor),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Понятно', style: TextStyle(color: QRHColors.info)),
+          ),
+          if (controller.missingLanguages.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                controller.addMissingLanguages(context, context.read<AppController>());
+              },
+              child: const Text('Добавить недостающие', style: TextStyle(color: QRHColors.warning)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _validateDocument(BuildContext context, CrewViewerController controller) async {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -101,10 +144,7 @@ class _CrewViewerContentState extends State<_CrewViewerContent> {
             style: TextStyle(color: result.isValid ? Colors.green : Colors.red),
           ),
           content: SingleChildScrollView(
-            child: Text(
-              result.toString(),
-              style: const TextStyle(fontFamily: 'monospace'),
-            ),
+            child: Text(result.toString(), style: const TextStyle(fontFamily: 'monospace')),
           ),
           actions: [
             IconButton(
@@ -112,10 +152,7 @@ class _CrewViewerContentState extends State<_CrewViewerContent> {
               tooltip: 'Проверить S1000D',
               onPressed: () => _validateDocument(context, controller),
             ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Закрыть'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Закрыть')),
           ],
         ),
       );
@@ -125,10 +162,7 @@ class _CrewViewerContentState extends State<_CrewViewerContent> {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Ошибка: $e',
-            style: const TextStyle(color: Colors.white),
-          ),
+          content: Text('Ошибка: $e', style: const TextStyle(color: Colors.white)),
           backgroundColor: Colors.red,
         ),
       );
@@ -138,37 +172,20 @@ class _CrewViewerContentState extends State<_CrewViewerContent> {
   Widget _buildItem(BuildContext context, CrewItem item, CrewViewerController controller, bool isEditMode) {
     if (item is CrewHeader) {
       return Padding(
-        padding: const EdgeInsets.only(
-          top: 16.0,
-          bottom: 8.0,
-          left: 16.0,
-          right: 16.0,
-        ),
+        padding: const EdgeInsets.only(top: 16.0, bottom: 8.0, left: 16.0, right: 16.0),
         child: Row(
           children: [
             Expanded(
               child: isEditMode
                   ? TextFormField(
                       initialValue: item.title,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: QRHColors.textPrimary,
-                      ),
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (val) =>
-                          controller.updateHeaderTitle(item, val),
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: QRHColors.textPrimary),
+                      decoration: const InputDecoration(isDense: true, border: OutlineInputBorder()),
+                      onChanged: (val) => controller.updateHeaderTitle(item, val),
                     )
                   : Text(
                       item.title,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: QRHColors.info,
-                      ),
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: QRHColors.info),
                     ),
             ),
             if (isEditMode)
@@ -187,6 +204,8 @@ class _CrewViewerContentState extends State<_CrewViewerContent> {
       return CrewConditionRow(item: item);
     } else if (item is CrewFigure) {
       return CrewFigureRow(item: item);
+    } else if (item is CrewTable) {
+      return CrewTableRowWidget(item: item);
     } else if (item is CrewStep) {
       if (item.dmRefNode != null) {
         return CrewReferenceRow(step: item);
@@ -219,15 +238,8 @@ class _CrewViewerContentState extends State<_CrewViewerContent> {
             ),
             Row(
               children: [
-                const Text(
-                  'Редактировать',
-                  style: TextStyle(fontSize: 14, color: QRHColors.textPrimary),
-                ),
-                Switch(
-                  value: isEditMode,
-                  activeThumbColor: QRHColors.success,
-                  onChanged: controller.toggleEditMode,
-                ),
+                const Text('Редактировать', style: TextStyle(fontSize: 14, color: QRHColors.textPrimary)),
+                Switch(value: isEditMode, activeThumbColor: QRHColors.success, onChanged: controller.toggleEditMode),
               ],
             ),
             const SizedBox(width: 8),
@@ -255,9 +267,7 @@ class _CrewViewerContentState extends State<_CrewViewerContent> {
       );
     }
 
-    final allChecked =
-        controller.checkboxStates.isNotEmpty &&
-        controller.checkboxStates.every((state) => state);
+    final allChecked = controller.checkboxStates.isNotEmpty && controller.checkboxStates.every((state) => state);
 
     return PopScope(
       canPop: !controller.hasChanges,
@@ -273,6 +283,25 @@ class _CrewViewerContentState extends State<_CrewViewerContent> {
         appBar: AppBar(
           title: Text(controller.fileTitle ?? 'Чеклист экипажа (Crew)'),
           actions: [
+            if (controller.missingLanguages.isNotEmpty || controller.structuralMismatches.isNotEmpty)
+              Tooltip(
+                message: controller.structuralMismatches.isNotEmpty
+                    ? 'Ошибка структуры в языках: ${controller.structuralMismatches.keys.join(', ')}'
+                    : 'Отсутствуют языки: ${controller.missingLanguages.join(', ')}',
+                child: IconButton(
+                  icon: Icon(
+                    controller.structuralMismatches.isNotEmpty ? Icons.error_outline : Icons.language,
+                    color: QRHColors.warning,
+                  ),
+                  onPressed: () {
+                    if (controller.structuralMismatches.isNotEmpty) {
+                      _showStructuralErrors(context, controller);
+                    } else {
+                      controller.addMissingLanguages(context, context.read<AppController>());
+                    }
+                  },
+                ),
+              ),
             IconButton(
               icon: const Icon(Icons.verified_user),
               tooltip: 'Проверить S1000D',
@@ -285,28 +314,14 @@ class _CrewViewerContentState extends State<_CrewViewerContent> {
             ),
             Row(
               children: [
-                const Text(
-                  'Редактировать',
-                  style: TextStyle(fontSize: 14, color: QRHColors.textPrimary),
-                ),
-                Switch(
-                  value: isEditMode,
-                  activeThumbColor: QRHColors.success,
-                  onChanged: controller.toggleEditMode,
-                ),
+                const Text('Редактировать', style: TextStyle(fontSize: 14, color: QRHColors.textPrimary)),
+                Switch(value: isEditMode, activeThumbColor: QRHColors.success, onChanged: controller.toggleEditMode),
               ],
             ),
             if (isEditMode)
               IconButton(
-                icon: Icon(
-                  Icons.save,
-                  color: controller.hasChanges
-                      ? QRHColors.danger
-                      : QRHColors.textSecondary,
-                ),
-                onPressed: controller.hasChanges
-                    ? () => controller.saveChanges(context)
-                    : null,
+                icon: Icon(Icons.save, color: controller.hasChanges ? QRHColors.danger : QRHColors.textSecondary),
+                onPressed: controller.hasChanges ? () => controller.saveChanges(context) : null,
                 tooltip: 'Сохранить',
               ),
             const SizedBox(width: 8),
@@ -322,10 +337,7 @@ class _CrewViewerContentState extends State<_CrewViewerContent> {
                 proxyDecorator: (child, index, animation) {
                   return ChangeNotifierProvider<CrewViewerController>.value(
                     value: controller,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: child,
-                    ),
+                    child: Material(color: Colors.transparent, child: child),
                   );
                 },
                 itemBuilder: (context, index) {
@@ -360,16 +372,12 @@ class _CrewViewerContentState extends State<_CrewViewerContent> {
                 itemCount: controller.items.length,
                 separatorBuilder: (context, index) {
                   if (controller.items[index] is CrewHeader ||
-                      (index + 1 < controller.items.length &&
-                          controller.items[index + 1] is CrewHeader)) {
+                      (index + 1 < controller.items.length && controller.items[index + 1] is CrewHeader)) {
                     return const SizedBox(height: 8);
                   }
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4.0),
-                    child: Divider(
-                      color: QRHColors.dividerColor.withValues(alpha: 0.5),
-                      height: 1,
-                    ),
+                    child: Divider(color: QRHColors.dividerColor.withValues(alpha: 0.5), height: 1),
                   );
                 },
                 itemBuilder: (context, index) {
@@ -385,30 +393,14 @@ class _CrewViewerContentState extends State<_CrewViewerContent> {
                   padding: const EdgeInsets.all(16.0),
                   child: ElevatedButton.icon(
                     onPressed: () => controller.completeChecklist(context),
-                    icon: Icon(
-                      allChecked
-                          ? Icons.check_circle
-                          : Icons.playlist_add_check,
-                    ),
-                    label: Text(
-                      allChecked
-                          ? 'ЧЕКЛИСТ ВЫПОЛНЕН'
-                          : 'ОТМЕТИТЬ ВЫПОЛНЕНИЕ ЧЕКЛИСТА',
-                    ),
+                    icon: Icon(allChecked ? Icons.check_circle : Icons.playlist_add_check),
+                    label: Text(allChecked ? 'ЧЕКЛИСТ ВЫПОЛНЕН' : 'ОТМЕТИТЬ ВЫПОЛНЕНИЕ ЧЕКЛИСТА'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: allChecked
-                          ? QRHColors.success
-                          : QRHColors.info,
+                      backgroundColor: allChecked ? QRHColors.success : QRHColors.info,
                       foregroundColor: QRHColors.primaryBg,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.1,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                   ),
                 ),
@@ -417,4 +409,3 @@ class _CrewViewerContentState extends State<_CrewViewerContent> {
     );
   }
 }
-
